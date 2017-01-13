@@ -1,0 +1,67 @@
+// Create an IntervalTimer object 
+IntervalTimer myTimer;
+
+const int redPin = 20;  // the pin with a LED
+const int greenPin = 21;  // the pin with a LED
+const int bluePin = 22;  // the pin with a LED
+
+
+void setup(void) {
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
+  Serial.begin(9600);
+  myTimer.begin(fadeLED, 10000);  // blinkLED to run every 0.15 seconds
+}
+
+// The interrupt will blink the LED, and keep
+// track of how many times it has blinked.
+const int redPin = HIGH;
+const int greenPin = HIGH;
+const int bluePin = HIGH;
+bool fadeUp = 1;
+volatile unsigned long fadeCount = 0; // use volatile for shared variables
+
+// functions called by IntervalTimer should be short, run as quickly as
+// possible, and should avoid calling other functions if possible.
+void fadeLED(void) {
+	
+	analogWrite(selectedPin, fadeCount);
+	
+	if (fadeUp) {
+		fadeCount = fadeCount + 1;
+	} else {
+		fadeCount = fadeCount - 1;
+	}
+			
+	if (fadeCount >= 256) {
+		fadeUp = 0;
+	}
+	if (fadeCount <= -1) {
+		fadeUp = 1;
+		
+	}
+	
+
+}
+
+// The main program will print the blink count
+// to the Arduino Serial Monitor
+void loop(void) {
+  unsigned long fadeCopy;  // holds a copy of the blinkCount
+
+  // to read a variable which the interrupt code writes, we
+  // must temporarily disable interrupts, to be sure it will
+  // not change while we are reading.  To minimize the time
+  // with interrupts off, just quickly make a copy, and then
+  // use the copy while allowing the interrupt to keep working.
+  noInterrupts();
+  fadeCopy = fadeCount;
+  interrupts();
+  
+
+  Serial.print("fadeCount = ");
+  Serial.println(fadeCopy);
+  delay(100);
+}
+I
