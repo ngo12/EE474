@@ -8,37 +8,31 @@ const int bluePin = 22;
 
 void setup(void) {
 
-    // Set LED outputs
+    // Setup LEDs to be outputs
     pinMode(redPin, OUTPUT);
     pinMode(greenPin, OUTPUT);
     pinMode(bluePin, OUTPUT);
-    // Turn off LEDS
+    // Turn off LEDS at start
     digitalWrite(redPin, HIGH);
     digitalWrite(greenPin, HIGH);
     digitalWrite(bluePin, HIGH);
 
     Serial.begin(9600);
     // Begin IntervalTimer
-    myTimer.begin(blinkLED, 10000);  // blinkLED to run every 0.15 seconds
+    myTimer.begin(fadeLED, 10000);  // fadeLED to run every 10ms
 
 }
 
-// The interrupt will blink the LED, and keep
-// track of how many times it has blinked.
-int redState = HIGH;
-int greenState = HIGH;
-int blueState = HIGH;
-volatile unsigned long blinkCount = 255; // use volatile for shared variables
+volatile unsigned long fadeCount = 255; // use volatile for shared variables
+int fadeDir = 1; // 1 increments, -1 decrements
+int selectedPin = 0; // 0 is no pin selected, 21=red, 22=green, 23=blue
 
-int fadeDir = 1;
-int selectedPin = 0;
-// functions called by IntervalTimer should be short, run as quickly as
-// possible, and should avoid calling other functions if possible.
-void blinkLED(void) {
+// Fades the led and changes color when done fading
+void fadeLED(void) {
 
-    analogWrite(selectedPin, blinkCount);
+    analogWrite(selectedPin, fadeCount);
 
-    if (blinkCount >= 255) {
+    if (fadeCount >= 255) {
         fadeDir = fadeDir * -1;
         if (selectedPin == 0) {
             selectedPin = redPin;
@@ -53,43 +47,17 @@ void blinkLED(void) {
             digitalWrite(bluePin, HIGH);
         }
     }
-    else if (blinkCount <= 0) {
+    else if (fadeCount <= 0) {
         fadeDir = fadeDir * -1;
     }
-    blinkCount = blinkCount + 1 * fadeDir;
+    fadeCount = fadeCount + 1 * fadeDir;
 
-    /* switch (blinkCount) { */
-
-    /* case 0: */
-    /*     redState = LOW; */
-    /*     greenState = HIGH; */
-    /*     blueState = HIGH; */
-    /*     break; */
-    /* case 1: */
-    /*     redState = HIGH; */
-    /*     greenState = LOW; */
-    /*     blueState = HIGH; */
-    /*     break; */
-    /* case 2: */
-    /*     redState = HIGH; */
-    /*     greenState = HIGH; */
-    /*     blueState = LOW; */
-    /*     break; */
-    /* default: */
-    /*     break; */
-
-    /* } */
-
-    /* blinkCount = blinkCount + 1;  // increase when LED turns on */
-    /* digitalWrite(redPin, redState); */
-    /* digitalWrite(greenPin, greenState); */
-    /* digitalWrite(bluePin, blueState); */
 }
 
-// The main program will print the blink count
+// The main program will print the fade count
 // to the Arduino Serial Monitor
 void loop(void) {
-    unsigned long blinkCopy;  // holds a copy of the blinkCount
+    unsigned long fadeCopy;  // holds a copy of the fadeCount
 
     // to read a variable which the interrupt code writes, we
     // must temporarily disable interrupts, to be sure it will
@@ -97,11 +65,11 @@ void loop(void) {
     // with interrupts off, just quickly make a copy, and then
     // use the copy while allowing the interrupt to keep working.
     noInterrupts();
-    blinkCopy = blinkCount;
+    fadeCopy = fadeCount;
     interrupts();
 
 
-    Serial.print("blinkCount = ");
-    Serial.println(blinkCopy);
+    Serial.print("fadeCount = ");
+    Serial.println(fadeCopy);
     delay(100);
 }
