@@ -1,5 +1,0 @@
-# Ryan Linden
-# CSE 374
-# HW2 Part2
-
-alias private='chmod -R g=u,o-w'
