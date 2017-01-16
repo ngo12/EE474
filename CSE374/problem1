@@ -1,0 +1,40 @@
+Ryan Linden
+CSE 374
+HW 2 - Problem 1
+
+To print tweet to standard out using the following commands...
+
+Using echo:
+This one is quite straight forward and just prints tweet to standard out
+>> echo tweet
+
+Using cat:
+First create a file that only contains the word tweet.
+>> echo tweet > tweet.txt
+Then use cat to read the file to standard out.
+>> cat tweet.txt
+
+Using ls:
+Create a new directory with no other files in it.
+>> mkdir tweetFolder
+Then make one file called tweet.
+>> touch tweet
+Finally, use ls to print that file name.
+>> ls
+
+Using grep:
+Create a file that has only the word tweet in it.
+>> echo tweet > tweet.txt
+Use grep on the text file that has only the word tweet in it.
+>> grep tweet tweet.txt
+
+Using !!:
+Create a script called tweet with only the shebang and no actual commands.
+>> echo '!/bin/bash' > tweet
+Make the script executable using chmod.
+>> chmod +x tweet
+Run the command by typing tweet.
+>> tweet
+Then type !! to run the last command, it outputs the command name but nothing else since
+the script doesn't actually do anything.
+>> !!
