@@ -35,6 +35,13 @@ ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC);
 #define UPPER_THRESH 2000
 #define LOWER_THRESH 1000
 
+const int buttonPin =  1;     // the number of the pushbutton pin.
+// Variables will change:
+int buttonState;             // the current reading from the input pin
+int lastButtonState = HIGH;   // the previous reading from the input pin
+int startEKG = 1;                  // flag for whether the cube should rotate
+
+
 int stabilizedFlag = 0;
 unsigned long myTimer = 0;
 int screenWidth = 320;
@@ -57,6 +64,7 @@ void setup() {
   adcValue = 0;
 
   pinMode(INPUT_PIN, INPUT);
+  pinMode(buttonPin, INPUT_PULLUP);  
 
   analogReadResolution(12);
 
@@ -102,12 +110,6 @@ void setup() {
   myTimer = millis();
 }
 
-void pdb_isr() {
-  adcValue = analogRead(INPUT_PIN);
-  addToBuffer(adcValue);
-  PDB0_SC = PDB_CONFIG | PDB_SC_LDOK;  // (also clears interrupt flag)
-}
-
 int adcValueCopy = 0;
 int x, y = 0;
 int xPrev, yPrev = 0;
@@ -116,6 +118,8 @@ int xPrev, yPrev = 0;
 unsigned long timePerPixel = 40 / (screenWidth / numLinesWidth);  // ms
 void loop() {
 
+  buttonState = onOff();
+  Serial.print(buttonState);
   // put your main code here, to run repeatedly:
   noInterrupts();
   adcValueCopy = adcValue;
@@ -125,6 +129,28 @@ void loop() {
     drawNewData();
     myTimer = millis();
   }
+}
+
+int onOff() {
+  // read the state of the switch into a local variable:
+  int myButtonState = digitalRead(buttonPin);
+
+  // Looks for a LOW to HIGH transition and
+  // toggles the state-variable for ech button press
+  if (myButtonState == LOW && lastButtonState == HIGH) {
+    lastButtonState = myButtonState;
+    return 1;
+  } else {
+    lastButtonState = myButtonState;
+    return 0;
+  }
+
+}
+
+void pdb_isr() {
+  adcValue = analogRead(INPUT_PIN);
+  addToBuffer(adcValue);
+  PDB0_SC = PDB_CONFIG | PDB_SC_LDOK;  // (also clears interrupt flag)
 }
 
 void drawNewData() {
@@ -192,6 +218,8 @@ void stabilize2() {
     tft.println(LOWER_THRESH);
     tft.print("Current value: ");
     tft.println(valCopy);
+    buttonState = onOff();
+    Serial.print(buttonState);
     delay(50);
   }
 }
