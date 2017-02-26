@@ -56,7 +56,7 @@ int screenHeight = 240;
 // grid line amounts
 int numLinesWidth = 40;
 int numLinesHeight = 30;
-volatile int myBuffer[BUFFER_SIZE];
+int myBuffer[BUFFER_SIZE];
 volatile int bufferPos = 0;
 volatile int stBuffer[ST_BUFFER_SIZE];
 volatile int stBufferPos = 0;
@@ -233,7 +233,6 @@ void ekgProg() {
     // put your main code here, to run repeatedly:
     noInterrupts();
     adcValueCopy = adcValue;
-    addToBuffer(adcValue);
     interrupts();
     myTimer = millis() - myTimer;
     if (myTimer >= timePerPixel) {
@@ -244,6 +243,7 @@ void ekgProg() {
     progRunning  = 0;
     tft.fillScreen(BG_COLOR);
     writeCard(myBuffer, BUFFER_SIZE);
+    bufferPos = 0;
   }
 }
 
@@ -302,7 +302,7 @@ void adc0_start_reading() {
 // This interrupt is automatically called once the reading from adc0_start_reading()
 // has finished calculations.
 //
-// We get the ADC reading and check for a positive edge by making sure it passes
+// sWe get the ADC reading and check for a positive edge by making sure it passes
 // the threshold value and that our posEdgeTrigger flag was previously 0.
 // Using the micros() function we time the interval in between the posEdgeTriggers
 // and that is the period of the signal
@@ -310,6 +310,7 @@ void adc0_isr() {
   if(!adc->adc0->isConverting()) {
     adcValue = adc->readSingle(ADC_0);
   }
+  addToBuffer(adcValue);
 }
 
 void drawNewData() {
