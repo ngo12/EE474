@@ -1,9 +1,9 @@
-/* 
+/*
   Cardio1.ino
   Lab 7, Part 2
-  Course: EE 474 
- 
-  Names and Student Numbers: 
+  Course: EE 474
+
+  Names and Student Numbers:
   Ryan Linden: 1571298
   Khalid Alzuhair: 1360167
   Brandon Ngo: 1462375
@@ -61,7 +61,7 @@ volatile int adcValue;
 ADC *adc = new ADC();
 IntervalTimer myADCTimer;
 
-// For SD Card 
+// For SD Card
 File myFile;
 String initials = "KARLBN";
 String sRate = "250";
@@ -73,27 +73,27 @@ int fileHeadingNumber = 0;
 void setup() {
 
   Serial.begin(9600);
-  
+
   bufferPos = 0;
   adcValue = 0;
 
-  // ADC INIT   
+  // ADC INIT
   pinMode(INPUT_PIN, INPUT);
-  pinMode(buttonPin, INPUT_PULLUP);  
+  pinMode(buttonPin, INPUT_PULLUP);
   adcInit();
   analogReadResolution(12);
 
-  // LCD Screen Setup 
-  tft.begin(); 
-  tft.setRotation(3); 
+  // LCD Screen Setup
+  tft.begin();
+  tft.setRotation(3);
   tft.setTextSize(2);
   tft.setTextColor(TEXT_COLOR);
   tft.fillScreen(BG_COLOR);
 
   startScreen();
   myTimer = millis();
-  
-  // Setup SD Card 
+
+  // Setup SD Card
   if (!SD.begin(chipSelect)) {
     Serial.println("initialization failed!");
     return;
@@ -132,10 +132,10 @@ void loop() {
       //Serial.println("Stabilizing..");
       stabilize2();
       tft.fillScreen(BG_COLOR);
-    } 
+    }
     if(progRunning) {
       //Serial.println("EKG Prog");
-      ekgProg();     
+      ekgProg();
     } else {
       //Serial.println("Start Screen");
       startScreen();
@@ -248,7 +248,7 @@ void drawNewData() {
     x = 0;
     xPrev = 0;
   }
-  
+
 }
 
 void stabilize2() {
@@ -333,7 +333,7 @@ void clearTextNumbers(char* str) {
     tft.setTextColor(BG_COLOR);
     tft.println(str);
     tft.setTextColor(TEXT_COLOR);
-  
+
 }
 
 void drawGrid() {
@@ -374,7 +374,7 @@ void writeCard(int* buff, int bufferLength) {
   int headerLength = header.length()+1;
   char headerCharArray[headerLength];
   header.toCharArray(headerCharArray, headerLength);
-  
+
   Serial.println(file);
     // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
