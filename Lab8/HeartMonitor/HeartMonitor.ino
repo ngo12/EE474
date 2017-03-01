@@ -514,10 +514,10 @@ void adcCalibrate() {
   | PDB_SC_CONT | PDB_SC_PRESCALER(7) | PDB_SC_MULT(1))
 
 // 48 MHz / 128 / 10 / 1 Hz = 37500
-#define PDB_PERIOD (F_BUS / 128 / 10 / 1)
+#define PDB_PERIOD (F_BUS / 128 / 10 / 1000)
 
 void pdbInit() {
-  pinMode(13, OUTPUT);
+  // pinMode(13, OUTPUT);
 
   // Enable PDB clock
   SIM_SCGC6 |= SIM_SCGC6_PDB;
@@ -546,9 +546,6 @@ void adc0_isr() {
 }
 
 void pdb_isr() {
-  Serial.print("pdb isr: ");
-  Serial.println(millis());
-  digitalWrite(13, (ledOn = !ledOn));
   // Clear interrupt flag
   PDB0_SC &= ~PDB_SC_PDBIF;
 }
