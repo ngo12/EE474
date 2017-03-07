@@ -130,5 +130,21 @@ double squaring() {
   return (pow(Diff(),2));
 }
 
+const int winSize = 10;
+double prevWindowVals[winSize]; 
+double movingWindowInt() {
+  double winSum = 0;
+  prevWindowVals[0] = squaring();
+  for (int i = 0; i < winSize; i++) {
+    winSum = prevWindowVals[i];
+  }
+  winSum = winSum / winSize;
+
+  for (int i = 0; i < winSize-1; i++) {
+    prevWindowVals[i+1] = prevWindowVals[i];
+  }
+  return winSum;
+}
+
 
 

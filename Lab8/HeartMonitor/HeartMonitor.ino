@@ -217,10 +217,13 @@ void drawNewData() {
   //y = map(LPF_Data, 0, 4095, 0, screenHeight);
   // TODO this is a hack, map values better to fit screen later
   y = map(LPF_Baseline*2.8, 0, 4095, 0, screenHeight);
+//  y = map(movingWindowInt(), 0, 4095, 0, screenHeight);
+  
 //    y = map(squaring(), 0, 4095, 0, screenHeight + 100);
-    Serial.print("Squaring: ");
+    Serial.print("Window: ");
+    Serial.println(movingWindowInt());
     double sqr = squaring();
-    Serial.println(sqr);
+    double sqrWind = movingWindowInt();
 
 
 
@@ -231,10 +234,11 @@ Serial.println(y);
   tft.drawLine(x, 0, x, screenHeight, BG_COLOR);
   tft.drawLine(x+1, 0, x+1, screenHeight, BG_COLOR);
   // make sure grid is not erased
-       if (sqr > 200.0) {
-      tft.drawLine(x, 0, x, screenHeight, ILI9341_MAGENTA);
-      tft.drawLine(x+1, 0, x+1, screenHeight, ILI9341_MAGENTA);
-      tft.drawLine(x-1, 0, x-1, screenHeight, ILI9341_MAGENTA);
+//       if (sqr > 200.0) {
+if (movingWindowInt() > 30) {
+      tft.drawLine(x, 0, x, screenHeight, ILI9341_GREEN);
+      tft.drawLine(x+1, 0, x+1, screenHeight, ILI9341_GREEN);
+      tft.drawLine(x-1, 0, x-1, screenHeight, ILI9341_GREEN);
     }
     // draw new data point, use thicker line
     tft.drawLine(xPrev, yPrev, x, y, LINE_COLOR);
