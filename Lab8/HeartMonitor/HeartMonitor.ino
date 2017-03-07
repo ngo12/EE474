@@ -21,6 +21,7 @@
 #define BG_COLOR ILI9341_WHITE
 #define GRID_COLOR ILI9341_RED
 #define LINE_COLOR ILI9341_BLACK
+#define LINE_COLOR2 ILI9341_BLUE
 #define TEXT_COLOR ILI9341_BLACK
 // For the Adafruit shield, these are the default.
 #define TFT_DC 9
@@ -36,11 +37,12 @@ ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC);
 #define STABILITY_THRESHOLD 0.05
 #define INPUT_PIN A1
 
-#define UPPER_THRESH 4000
-#define LOWER_THRESH 0
+#define UPPER_THRESH 2500
+#define LOWER_THRESH 1000
 #define PROG_MAX_TIME 30000 //ms
 #define AVERAGING 1 // num can be 1, 4, 8, 16 or 32.
 
+//const int buttonPin =  1;     // the number of the pushbutton pin.
 const int buttonPin =  1;     // the number of the pushbutton pin.
 // Variables will change:
 int buttonState;             // the current reading from the input pin
@@ -103,7 +105,7 @@ void setup() {
 }
 
 int adcValueCopy = 0;
-int x, y = 0;
+int x, y, y2 = 0;
 int xPrev, yPrev = 0;
 int progRunning = 0;
 unsigned long progTimer = 0;
@@ -157,7 +159,9 @@ void startScreen() {
 int LPF_Data;
 int LPF_Data_BL;
 int LPF_Baseline;
-float LPF_Beta = 0.15; // 0<Beta<1
+float LPF_Beta = 0.075; // 0<Beta<1
+//float LPF_Beta = 0.15; // 0<Beta<1
+
 void ekgProg() {
   if (millis() - startTimer <= PROG_MAX_TIME) {
     // put your main code here, to run repeatedly:
@@ -168,7 +172,8 @@ void ekgProg() {
     //Serial.println("Before: ");
     //Serial.println(adcValueCopy);
     LPF_Data = LPF_Data - (LPF_Beta * (LPF_Data - adcValueCopy));
-    LPF_Baseline = LPF_Data - LPF();
+    LPF_Data_BL = Diff();
+    LPF_Baseline = LPF_Data - LPF_Data_BL;
     //Serial.println("Filter: ");
     Serial.println(LPF_Data);
     //LPF_Data = adcValueCopy;
@@ -206,25 +211,65 @@ int onOff() {
 
 }
 
+int y2Prev = 0;
 void drawNewData() {
   drawGrid();
   //y = map(LPF_Data, 0, 4095, 0, screenHeight);
   // TODO this is a hack, map values better to fit screen later
-  y = map(LPF_Baseline, 0, 4095, 0, screenHeight) + 50;
-  //y = y - 250; // offset
+  y = map(LPF_Baseline*2.8, 0, 4095, 0, screenHeight);
+//    y = map(squaring(), 0, 4095, 0, screenHeight + 100);
+    Serial.print("Squaring: ");
+    double sqr = squaring();
+    Serial.println(sqr);
+
+
+
+//  y2 = map(LPF_Data_BL, 0, 4095, 0, screenHeight);
+Serial.println(y);
+  y = y -  300; // offset
   // draw over line before writing new value
   tft.drawLine(x, 0, x, screenHeight, BG_COLOR);
+  tft.drawLine(x+1, 0, x+1, screenHeight, BG_COLOR);
   // make sure grid is not erased
-  
-  // draw new data point, use thicker line
-  tft.drawLine(xPrev, yPrev, x, y, LINE_COLOR);
-  tft.drawLine(xPrev, yPrev+1, x, y+1, LINE_COLOR);
-  tft.drawLine(xPrev, yPrev-1, x, y-1, LINE_COLOR);
-  tft.drawLine(xPrev-1, yPrev, x-1, y, LINE_COLOR);
-  tft.drawLine(xPrev+1, yPrev-1, x+1, y, LINE_COLOR);
-  xPrev = x;
+       if (sqr > 200.0) {
+      tft.drawLine(x, 0, x, screenHeight, ILI9341_MAGENTA);
+      tft.drawLine(x+1, 0, x+1, screenHeight, ILI9341_MAGENTA);
+      tft.drawLine(x-1, 0, x-1, screenHeight, ILI9341_MAGENTA);
+    }
+    // draw new data point, use thicker line
+    tft.drawLine(xPrev, yPrev, x, y, LINE_COLOR);
+    tft.drawLine(xPrev, yPrev+1, x, y+1, LINE_COLOR);
+    tft.drawLine(xPrev, yPrev-1, x, y-1, LINE_COLOR);
+    tft.drawLine(xPrev-1, yPrev, x-1, y, LINE_COLOR);
+    tft.drawLine(xPrev+1, yPrev-1, x+1, y, LINE_COLOR);
+
+//        tft.drawLine(xPrev, yPrev, x, y2, LINE_COLOR2);
+//    tft.drawLine(xPrev, y2Prev+1, x, y2+1, LINE_COLOR2);
+//    tft.drawLine(xPrev, y2Prev-1, x, y2-1, LINE_COLOR2);
+//    tft.drawLine(xPrev-1, y2Prev, x-1, y2, LINE_COLOR2);
+//    tft.drawLine(xPrev+1, y2Prev-1, x+1, y2, LINE_COLOR2);
+    
+    x++;
+    
+    tft.drawLine(xPrev, yPrev, x, y, LINE_COLOR);
+    tft.drawLine(xPrev, yPrev+1, x, y+1, LINE_COLOR);
+    tft.drawLine(xPrev, yPrev-1, x, y-1, LINE_COLOR);
+    tft.drawLine(xPrev-1, yPrev, x-1, y, LINE_COLOR);
+    tft.drawLine(xPrev+1, yPrev-1, x+1, y, LINE_COLOR);
+    
+//        tft.drawLine(xPrev, y2Prev, x, y2, LINE_COLOR2);
+//    tft.drawLine(xPrev, y2Prev+1, x, y2+1, LINE_COLOR2);
+//    tft.drawLine(xPrev, y2Prev-1, x, y2-1, LINE_COLOR2);
+//    tft.drawLine(xPrev-1, y2Prev, x-1, y2, LINE_COLOR2);
+//    tft.drawLine(xPrev+1, y2Prev-1, x+1, y2, LINE_COLOR2);
+    x++;
+    
+  xPrev = x -1;
   yPrev = y;
-  x++;
+  y2Prev = y2;
+  
+  
+ 
   if (x > screenWidth) {
     x = 0;
     xPrev = 0;
@@ -239,8 +284,9 @@ void stabilize2() {
   int upperThreshold = UPPER_THRESH;
   int lowerThreshold = LOWER_THRESH;
 
+  int buffLength = 20;
   int valCopy;
-  int prevValues[50];
+  int prevValues[buffLength];
   int enoughDataFlag = 0;
   int bufferStableFlag = 0;
   int bufferIndex = 0;
@@ -255,19 +301,22 @@ void stabilize2() {
     }
     Serial.print("Stable Loop");
     noInterrupts();
-    valCopy = adcValue;
+      adcValueCopy = adcValue;
+      Serial.print("STABBBLE: ");
+      Serial.println(LPF());
+      valCopy = LPF();
     interrupts();
 
     
     prevValues[bufferIndex] = adcValue;
     bufferIndex++;
-    if (bufferIndex > 50) {
+    if (bufferIndex > buffLength) {
       bufferIndex = 0;
       enoughDataFlag = 1;
     }
     if (enoughDataFlag) {
       bufferStableFlag = 1;
-      for (int i = 0; i < 50; i++) {
+      for (int i = 0; i < buffLength; i++) {
         if (!bufferStableFlag) {
           break;
         }
@@ -424,56 +473,7 @@ void addToBuffer(int val) {
 
 
 
-float numerator[3 + 1] =
-{
-    0.002040279141687, /* z^{0} */
-    0.006120837425060, /* z^{-1} */
-    0.006120837425060, /* z^{-2} */
-    0.002040279141687, /* z^{-3} */
-};
 
-
-float denominator[3 + 1] =
-{
-    1, /* z^{0} */
-    -2.448746826101290, /* z^{-1} */
-    2.039304153327110, /* z^{-2} */
-    -0.574235094092326, /* z^{-3} */
-};
-
-// butterworth filter
-double inSignal[4] = {0, 0, 0, 0};
-double outSignal[4] = {0, 0, 0, 0}; 
-double LPF() {
-inSignal[0] = (double) adcValueCopy; 
-outSignal[0] = numerator[0]*inSignal[0] +  numerator[1]*inSignal[1] +  numerator[2]*inSignal[2]  +  numerator[3]*inSignal[3] -  denominator[1]*outSignal[1] - denominator[2]*outSignal[2] - denominator[3]*outSignal[3]; 
-for (int i = 0; i < 4 - 1; i++) {
-  inSignal[i+1] = inSignal[i]; 
-}
-
-for (int i = 0; i < 4 - 1; i++) {
-  outSignal[i+1] = outSignal[i];
-}
-return  outSignal[0];
-}
-int windowSize = 20;
-double MovingAvgArr[100] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-double MovingAvgSum = 0;
-double movingAvgFilter() {
-  MovingAvgSum = 0;
-  MovingAvgArr[0] = LPF_Data;
-  for (int i = 0; i < windowSize - 1; i++) {
-    MovingAvgArr[i + 1] = MovingAvgArr[i]; 
-    MovingAvgSum+= MovingAvgArr[i];
-  }
-  MovingAvgSum+= MovingAvgArr[windowSize - 1];
-  return MovingAvgSum/windowSize;
-}
-
-double lowPassExponential()
-{
-    return adcValueCopy*LPF_Beta + (1-LPF_Beta)*LPF_Data;  // ensure factor belongs to  [0,1]
-}
  
 
 

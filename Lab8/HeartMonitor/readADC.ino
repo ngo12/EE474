@@ -31,7 +31,7 @@ void adcInit() {
   adcCalibrate();
 
   // Enable ADC interrupt, configure pin
-  ADC0_SC1A = ADC_SC1_AIEN | channel2sc1a[3];
+  ADC0_SC1A = ADC_SC1_AIEN | channel2sc1a[9];
   NVIC_ENABLE_IRQ(IRQ_ADC0);
 }
 
