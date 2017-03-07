@@ -155,7 +155,9 @@ void startScreen() {
 }
 
 int LPF_Data;
-float LPF_Beta = 0.075; // 0<Beta<1
+int LPF_Data_BL;
+int LPF_Baseline;
+float LPF_Beta = 0.15; // 0<Beta<1
 void ekgProg() {
   if (millis() - startTimer <= PROG_MAX_TIME) {
     // put your main code here, to run repeatedly:
@@ -163,7 +165,18 @@ void ekgProg() {
     adcValueCopy = adcValue;
     interrupts();
     adcValueCopy = 4095 - adcValueCopy;
+    //Serial.println("Before: ");
+    //Serial.println(adcValueCopy);
     LPF_Data = LPF_Data - (LPF_Beta * (LPF_Data - adcValueCopy));
+    LPF_Baseline = LPF_Data - LPF();
+    //Serial.println("Filter: ");
+    Serial.println(LPF_Data);
+    //LPF_Data = adcValueCopy;
+
+    //MovingAvg = movingAvgFilter();
+    //MovingAvg = adcValueCopy;
+    //Serial.println("Moving AVG: ");
+    //Serial.println(MovingAvg);
     myTimer = millis() - myTimer;
     if (myTimer >= timePerPixel) {
       drawNewData();
@@ -197,7 +210,7 @@ void drawNewData() {
   drawGrid();
   //y = map(LPF_Data, 0, 4095, 0, screenHeight);
   // TODO this is a hack, map values better to fit screen later
-  y = map(LPF_Data, 0, 4095, 0, screenHeight);
+  y = map(LPF_Baseline, 0, 4095, 0, screenHeight) + 50;
   //y = y - 250; // offset
   // draw over line before writing new value
   tft.drawLine(x, 0, x, screenHeight, BG_COLOR);
@@ -235,7 +248,9 @@ void stabilize2() {
   while (!stabilizedFlag && buttonState != 1) {
     buttonState = onOff();
     if (buttonState) {
-      progRunning = 0;
+      stabilizedFlag = 1;
+      progRunning = 1;
+      startTimer = millis();
       break;
     }
     Serial.print("Stable Loop");
@@ -406,4 +421,59 @@ void addToBuffer(int val) {
       }
   }
 }
+
+
+
+float numerator[3 + 1] =
+{
+    0.002040279141687, /* z^{0} */
+    0.006120837425060, /* z^{-1} */
+    0.006120837425060, /* z^{-2} */
+    0.002040279141687, /* z^{-3} */
+};
+
+
+float denominator[3 + 1] =
+{
+    1, /* z^{0} */
+    -2.448746826101290, /* z^{-1} */
+    2.039304153327110, /* z^{-2} */
+    -0.574235094092326, /* z^{-3} */
+};
+
+// butterworth filter
+double inSignal[4] = {0, 0, 0, 0};
+double outSignal[4] = {0, 0, 0, 0}; 
+double LPF() {
+inSignal[0] = (double) adcValueCopy; 
+outSignal[0] = numerator[0]*inSignal[0] +  numerator[1]*inSignal[1] +  numerator[2]*inSignal[2]  +  numerator[3]*inSignal[3] -  denominator[1]*outSignal[1] - denominator[2]*outSignal[2] - denominator[3]*outSignal[3]; 
+for (int i = 0; i < 4 - 1; i++) {
+  inSignal[i+1] = inSignal[i]; 
+}
+
+for (int i = 0; i < 4 - 1; i++) {
+  outSignal[i+1] = outSignal[i];
+}
+return  outSignal[0];
+}
+int windowSize = 20;
+double MovingAvgArr[100] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+double MovingAvgSum = 0;
+double movingAvgFilter() {
+  MovingAvgSum = 0;
+  MovingAvgArr[0] = LPF_Data;
+  for (int i = 0; i < windowSize - 1; i++) {
+    MovingAvgArr[i + 1] = MovingAvgArr[i]; 
+    MovingAvgSum+= MovingAvgArr[i];
+  }
+  MovingAvgSum+= MovingAvgArr[windowSize - 1];
+  return MovingAvgSum/windowSize;
+}
+
+double lowPassExponential()
+{
+    return adcValueCopy*LPF_Beta + (1-LPF_Beta)*LPF_Data;  // ensure factor belongs to  [0,1]
+}
+ 
+
 
