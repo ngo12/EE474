@@ -49,11 +49,12 @@ const int buttonPin =  1;     // the number of the pushbutton pin.
 int buttonState;             // the current reading from the input pin
 int lastButtonState = HIGH;   // the previous reading from the input pin
 int startEKG = 1;                  // flag for whether the cube should rotate
-
+double heartRate = 0;
 
 unsigned long myTimer = 0;
 unsigned long startTimer = 0;
 double heartRateTimer = 0;
+double QRS_timer = 0;
 double PeriodOfRR = 0;
 const int adcTimer = 4000 / AVERAGING; // us
 int screenWidth = 320;
@@ -117,16 +118,16 @@ unsigned long progTimer = 0;
 // then, 40 ms / pixels per grid block. (40ms is the length of time per grid block)
 unsigned long timePerPixel = 40 / (screenWidth / numLinesWidth);  // ms
 void loop() {
-//  Serial.println("Main Loop");
+  //  Serial.println("Main Loop");
 
   buttonState = onOff();
   if (buttonState) {
-  //  Serial.println("Button On");
+    //  Serial.println("Button On");
     if (progRunning) {
-    //  Serial.println("Set Prog Running to 0");
+      //  Serial.println("Set Prog Running to 0");
       progRunning = 0;
     } else {
-    //  Serial.println("Set Prog Running to 1");
+      //  Serial.println("Set Prog Running to 1");
       progRunning = 1;
     }
     buttonState = 0;
@@ -139,7 +140,7 @@ void loop() {
       stabilize2();
       tft.fillScreen(BG_COLOR);
     }
-    if(progRunning) {
+    if (progRunning) {
       //Serial.println("EKG Prog");
       ekgProg();
     } else {
@@ -178,7 +179,7 @@ void ekgProg() {
     LPF_Data_BL = Diff();
     LPF_Baseline = LPF_Data - LPF_Data_BL;
     //Serial.println("Filter: ");
-//    Serial.println(LPF_Data);
+    //    Serial.println(LPF_Data);
     //LPF_Data = adcValueCopy;
 
     //MovingAvg = movingAvgFilter();
@@ -215,79 +216,88 @@ int onOff() {
 }
 
 int y2Prev = 0;
+int QRS_startFlag = 0; 
 void drawNewData() {
   drawGrid();
   //y = map(LPF_Data, 0, 4095, 0, screenHeight);
   // TODO this is a hack, map values better to fit screen later
-  y = map(LPF_Baseline*2.8, 0, 4095, 0, screenHeight);
-//  y = map(movingWindowInt(), 0, 4095, 0, screenHeight);
-  
-//    y = map(squaring(), 0, 4095, 0, screenHeight + 100);
-    //Serial.print("Window: ");
-    //Serial.println(movingWindowInt());
-    double sqr = squaring();
-    double sqrWind = movingWindowInt();
+  y = map(LPF_Baseline * 2.8, 0, 4095, 0, screenHeight);
+  //  y = map(movingWindowInt(), 0, 4095, 0, screenHeight);
+
+  //    y = map(squaring(), 0, 4095, 0, screenHeight + 100);
+  //Serial.print("Window: ");
+  //Serial.println(movingWindowInt());
+  double sqr = squaring();
+  double sqrWind = movingWindowInt();
 
 
 
-//  y2 = map(LPF_Data_BL, 0, 4095, 0, screenHeight);
-//Serial.println(y);
+  //  y2 = map(LPF_Data_BL, 0, 4095, 0, screenHeight);
+  //Serial.println(y);
   y = y -  230; // offset
   // draw over line before writing new value
   tft.drawLine(x, 0, x, screenHeight, BG_COLOR);
-  tft.drawLine(x+1, 0, x+1, screenHeight, BG_COLOR);
+  tft.drawLine(x + 1, 0, x + 1, screenHeight, BG_COLOR);
   // make sure grid is not erased
-//       if (sqr > 200.0) {
-if (movingWindowInt() > 30) {
+  //       if (sqr > 200.0) {
+  if (movingWindowInt() > 30) {
     PeriodOfRR = (millis() - heartRateTimer);
-      if (PeriodOfRR > QRS_MAX_TIME) {
-        double period = PeriodOfRR/1000;
-        double heartRate =  60 /period;
-        heartRateTimer = millis();
-        Serial.print("Heart rate is: ");
-        Serial.println(heartRate);
-        Serial.print("Heart rate is: ");
-        Serial.println(period);
-      } 
-      tft.drawLine(x, 0, x, screenHeight, ILI9341_GREEN);
-      tft.drawLine(x+1, 0, x+1, screenHeight, ILI9341_GREEN);
-      tft.drawLine(x-1, 0, x-1, screenHeight, ILI9341_GREEN);
-      
+    if (PeriodOfRR > QRS_MAX_TIME) {
+      QRS_startFlag = 1;
+      QRS_timer = millis();
+      Serial.println("RR interval: "); 
+      Serial.println(PeriodOfRR);
+      double period = PeriodOfRR / 1000;
+      heartRate =  60 / period;
+      heartRateTimer = millis();
+      Serial.print("Heart rate is: ");
+      Serial.println(heartRate);
     }
-    // draw new data point, use thicker line
-    tft.drawLine(xPrev, yPrev, x, y, LINE_COLOR);
-    tft.drawLine(xPrev, yPrev+1, x, y+1, LINE_COLOR);
-    tft.drawLine(xPrev, yPrev-1, x, y-1, LINE_COLOR);
-    tft.drawLine(xPrev-1, yPrev, x-1, y, LINE_COLOR);
-    tft.drawLine(xPrev+1, yPrev-1, x+1, y, LINE_COLOR);
+    tft.drawLine(x, 0, x, screenHeight, ILI9341_GREEN);
+    tft.drawLine(x + 1, 0, x + 1, screenHeight, ILI9341_GREEN);
+    tft.drawLine(x - 1, 0, x - 1, screenHeight, ILI9341_GREEN);
 
-//        tft.drawLine(xPrev, yPrev, x, y2, LINE_COLOR2);
-//    tft.drawLine(xPrev, y2Prev+1, x, y2+1, LINE_COLOR2);
-//    tft.drawLine(xPrev, y2Prev-1, x, y2-1, LINE_COLOR2);
-//    tft.drawLine(xPrev-1, y2Prev, x-1, y2, LINE_COLOR2);
-//    tft.drawLine(xPrev+1, y2Prev-1, x+1, y2, LINE_COLOR2);
-    
-    x++;
-    
-    tft.drawLine(xPrev, yPrev, x, y, LINE_COLOR);
-    tft.drawLine(xPrev, yPrev+1, x, y+1, LINE_COLOR);
-    tft.drawLine(xPrev, yPrev-1, x, y-1, LINE_COLOR);
-    tft.drawLine(xPrev-1, yPrev, x-1, y, LINE_COLOR);
-    tft.drawLine(xPrev+1, yPrev-1, x+1, y, LINE_COLOR);
-    
-//        tft.drawLine(xPrev, y2Prev, x, y2, LINE_COLOR2);
-//    tft.drawLine(xPrev, y2Prev+1, x, y2+1, LINE_COLOR2);
-//    tft.drawLine(xPrev, y2Prev-1, x, y2-1, LINE_COLOR2);
-//    tft.drawLine(xPrev-1, y2Prev, x-1, y2, LINE_COLOR2);
-//    tft.drawLine(xPrev+1, y2Prev-1, x+1, y2, LINE_COLOR2);
-    x++;
-    
-  xPrev = x -1;
+  }
+  if (QRS_startFlag && movingWindowInt() < 1) {
+    QRS_timer = millis() - QRS_timer;
+    Serial.print("QRS timer is: "); 
+    Serial.println(QRS_timer);
+    QRS_startFlag = 0;
+  }
+  // draw new data point, use thicker line
+  tft.drawLine(xPrev, yPrev, x, y, LINE_COLOR);
+  tft.drawLine(xPrev, yPrev + 1, x, y + 1, LINE_COLOR);
+  tft.drawLine(xPrev, yPrev - 1, x, y - 1, LINE_COLOR);
+  tft.drawLine(xPrev - 1, yPrev, x - 1, y, LINE_COLOR);
+  tft.drawLine(xPrev + 1, yPrev - 1, x + 1, y, LINE_COLOR);
+
+  //        tft.drawLine(xPrev, yPrev, x, y2, LINE_COLOR2);
+  //    tft.drawLine(xPrev, y2Prev+1, x, y2+1, LINE_COLOR2);
+  //    tft.drawLine(xPrev, y2Prev-1, x, y2-1, LINE_COLOR2);
+  //    tft.drawLine(xPrev-1, y2Prev, x-1, y2, LINE_COLOR2);
+  //    tft.drawLine(xPrev+1, y2Prev-1, x+1, y2, LINE_COLOR2);
+
+  x++;
+
+  tft.drawLine(xPrev, yPrev, x, y, LINE_COLOR);
+  tft.drawLine(xPrev, yPrev + 1, x, y + 1, LINE_COLOR);
+  tft.drawLine(xPrev, yPrev - 1, x, y - 1, LINE_COLOR);
+  tft.drawLine(xPrev - 1, yPrev, x - 1, y, LINE_COLOR);
+  tft.drawLine(xPrev + 1, yPrev - 1, x + 1, y, LINE_COLOR);
+
+  //        tft.drawLine(xPrev, y2Prev, x, y2, LINE_COLOR2);
+  //    tft.drawLine(xPrev, y2Prev+1, x, y2+1, LINE_COLOR2);
+  //    tft.drawLine(xPrev, y2Prev-1, x, y2-1, LINE_COLOR2);
+  //    tft.drawLine(xPrev-1, y2Prev, x-1, y2, LINE_COLOR2);
+  //    tft.drawLine(xPrev+1, y2Prev-1, x+1, y2, LINE_COLOR2);
+  x++;
+
+  xPrev = x - 1;
   yPrev = y;
   y2Prev = y2;
-  
-  
- 
+
+
+
   if (x > screenWidth) {
     x = 0;
     xPrev = 0;
@@ -319,13 +329,13 @@ void stabilize2() {
     }
     Serial.print("Stable Loop");
     noInterrupts();
-      adcValueCopy = adcValue;
-      Serial.print("STABBBLE: ");
-      Serial.println(LPF());
-      valCopy = LPF();
+    adcValueCopy = adcValue;
+    Serial.print("STABBBLE: ");
+    Serial.println(LPF());
+    valCopy = LPF();
     interrupts();
 
-    
+
     prevValues[bufferIndex] = adcValue;
     bufferIndex++;
     if (bufferIndex > buffLength) {
@@ -375,16 +385,16 @@ void stabilize2() {
 }
 
 void clearTextNumbers(char* str) {
-      tft.setCursor(0, 0);
-    tft.println("Stabilizing...");
-    tft.print("Upper Threshold: ");
-    tft.println("    ");
-    tft.print("Lower Threshold: ");
-    tft.println("    ");
-    tft.print("Current value: ");
-    tft.setTextColor(BG_COLOR);
-    tft.println(str);
-    tft.setTextColor(TEXT_COLOR);
+  tft.setCursor(0, 0);
+  tft.println("Stabilizing...");
+  tft.print("Upper Threshold: ");
+  tft.println("    ");
+  tft.print("Lower Threshold: ");
+  tft.println("    ");
+  tft.print("Current value: ");
+  tft.setTextColor(BG_COLOR);
+  tft.println(str);
+  tft.setTextColor(TEXT_COLOR);
 
 }
 
@@ -393,21 +403,21 @@ void drawGrid() {
   int stepSizeHeight = (screenHeight / numLinesHeight);
   // draw outer grid
   // top
-  tft.drawLine(0, 0, screenWidth-1, 0, GRID_COLOR);
-  tft.drawLine(0, 0, screenWidth-1, 1, GRID_COLOR);
-  tft.drawLine(0, 0, screenWidth-1, 2, GRID_COLOR);
+  tft.drawLine(0, 0, screenWidth - 1, 0, GRID_COLOR);
+  tft.drawLine(0, 0, screenWidth - 1, 1, GRID_COLOR);
+  tft.drawLine(0, 0, screenWidth - 1, 2, GRID_COLOR);
   // bottom
-  tft.drawLine(0, screenHeight-1, screenWidth-1, screenHeight-1, GRID_COLOR);
-  tft.drawLine(0, screenHeight-1, screenWidth-1, screenHeight-2, GRID_COLOR);
-  tft.drawLine(0, screenHeight-1, screenWidth-1, screenHeight-3, GRID_COLOR);
+  tft.drawLine(0, screenHeight - 1, screenWidth - 1, screenHeight - 1, GRID_COLOR);
+  tft.drawLine(0, screenHeight - 1, screenWidth - 1, screenHeight - 2, GRID_COLOR);
+  tft.drawLine(0, screenHeight - 1, screenWidth - 1, screenHeight - 3, GRID_COLOR);
   // left
-  tft.drawLine(0, 0, 0, screenHeight-1, GRID_COLOR);
-  tft.drawLine(0, 0, 1, screenHeight-1, GRID_COLOR);
-  tft.drawLine(0, 0, 2, screenHeight-1, GRID_COLOR);
+  tft.drawLine(0, 0, 0, screenHeight - 1, GRID_COLOR);
+  tft.drawLine(0, 0, 1, screenHeight - 1, GRID_COLOR);
+  tft.drawLine(0, 0, 2, screenHeight - 1, GRID_COLOR);
   // right
-  tft.drawLine(screenWidth-1, 0, screenWidth-1, screenHeight-1, GRID_COLOR);
-  tft.drawLine(screenWidth-1, 0, screenWidth-2, screenHeight-1, GRID_COLOR);
-  tft.drawLine(screenWidth-1, 0, screenWidth-3, screenHeight-1, GRID_COLOR);
+  tft.drawLine(screenWidth - 1, 0, screenWidth - 1, screenHeight - 1, GRID_COLOR);
+  tft.drawLine(screenWidth - 1, 0, screenWidth - 2, screenHeight - 1, GRID_COLOR);
+  tft.drawLine(screenWidth - 1, 0, screenWidth - 3, screenHeight - 1, GRID_COLOR);
   // draw width lines
   for (int i = 0; i < numLinesWidth; i++) {
     if (i % 5 == 0) {
@@ -421,13 +431,13 @@ void drawGrid() {
   // draw height lines
   for (int i = 0; i < numLinesHeight; i++) {
     if (i % 5 == 0) {
-      tft.drawLine(0, i * stepSizeHeight-1, screenWidth, i * stepSizeHeight-1, GRID_COLOR);
+      tft.drawLine(0, i * stepSizeHeight - 1, screenWidth, i * stepSizeHeight - 1, GRID_COLOR);
       tft.drawLine(0, i * stepSizeHeight, screenWidth, i * stepSizeHeight, GRID_COLOR);
-      tft.drawLine(0, i * stepSizeHeight+1, screenWidth, i * stepSizeHeight+1, GRID_COLOR);
+      tft.drawLine(0, i * stepSizeHeight + 1, screenWidth, i * stepSizeHeight + 1, GRID_COLOR);
     } else {
       tft.drawLine(0, i * stepSizeHeight, screenWidth, i * stepSizeHeight, GRID_COLOR);
     }
-    
+
   }
 }
 
@@ -436,19 +446,19 @@ void writeCard(int* buff, int bufferLength) {
   String fileName = "KARLBN" + (String)fileHeadingNumber;
   fileName = fileName + ".txt";
 
-  int fileNameLength = fileName.length()+1;
+  int fileNameLength = fileName.length() + 1;
   char file[fileNameLength];
   fileName.toCharArray(file, fileNameLength);
 
   String header = initials + fileHeadingNumber;
   header = header + ", ";
   header = header + sRate;
-  int headerLength = header.length()+1;
+  int headerLength = header.length() + 1;
   char headerCharArray[headerLength];
   header.toCharArray(headerCharArray, headerLength);
 
   Serial.println(file);
-    // open the file. note that only one file can be open at a time,
+  // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
   SD.remove(file);
   myFile = SD.open(file, FILE_WRITE);
@@ -457,19 +467,19 @@ void writeCard(int* buff, int bufferLength) {
   if (myFile) {
     Serial.print("Writing...");
     myFile.println(headerCharArray);
-    for (int i=1; i <= bufferLength; i++) {
-      myFile.print(buff[i-1]);
+    for (int i = 1; i <= bufferLength; i++) {
+      myFile.print(buff[i - 1]);
 
       if (i % 8 == 0 && i != 1) {
         myFile.println();
-      // if not last item, print comma
+        // if not last item, print comma
       } else if (bufferLength != i) {
         myFile.print(", ");
       }
     }
     myFile.println();
     myFile.println("EOF");
-  // close the file:
+    // close the file:
     myFile.close();
     Serial.println("done.");
   } else {
@@ -479,19 +489,19 @@ void writeCard(int* buff, int bufferLength) {
   fileHeadingNumber++;
 }
 
-void addToBuffer(int val) {  
+void addToBuffer(int val) {
   if (stabilizedFlag) {
-      myBuffer[bufferPos] = val;
-      bufferPos++;
-      if (bufferPos >= BUFFER_SIZE) {
-       bufferPos = 0;
-      }
+    myBuffer[bufferPos] = val;
+    bufferPos++;
+    if (bufferPos >= BUFFER_SIZE) {
+      bufferPos = 0;
+    }
   }
 }
 
 
 
 
- 
+
 
 
