@@ -40,6 +40,7 @@ ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC);
 #define UPPER_THRESH 2500
 #define LOWER_THRESH 1000
 #define PROG_MAX_TIME 30000 //ms
+#define QRS_MAX_TIME 300  //ms
 #define AVERAGING 1 // num can be 1, 4, 8, 16 or 32.
 
 //const int buttonPin =  1;     // the number of the pushbutton pin.
@@ -52,6 +53,8 @@ int startEKG = 1;                  // flag for whether the cube should rotate
 
 unsigned long myTimer = 0;
 unsigned long startTimer = 0;
+double heartRateTimer = 0;
+double PeriodOfRR = 0;
 const int adcTimer = 4000 / AVERAGING; // us
 int screenWidth = 320;
 int screenHeight = 240;
@@ -159,8 +162,8 @@ void startScreen() {
 int LPF_Data;
 int LPF_Data_BL;
 int LPF_Baseline;
-float LPF_Beta = 0.075; // 0<Beta<1
-//float LPF_Beta = 0.15; // 0<Beta<1
+//float LPF_Beta = 0.075; // 0<Beta<1
+float LPF_Beta = 0.15; // 0<Beta<1
 
 void ekgProg() {
   if (millis() - startTimer <= PROG_MAX_TIME) {
@@ -175,7 +178,7 @@ void ekgProg() {
     LPF_Data_BL = Diff();
     LPF_Baseline = LPF_Data - LPF_Data_BL;
     //Serial.println("Filter: ");
-    Serial.println(LPF_Data);
+//    Serial.println(LPF_Data);
     //LPF_Data = adcValueCopy;
 
     //MovingAvg = movingAvgFilter();
@@ -220,25 +223,36 @@ void drawNewData() {
 //  y = map(movingWindowInt(), 0, 4095, 0, screenHeight);
   
 //    y = map(squaring(), 0, 4095, 0, screenHeight + 100);
-    Serial.print("Window: ");
-    Serial.println(movingWindowInt());
+    //Serial.print("Window: ");
+    //Serial.println(movingWindowInt());
     double sqr = squaring();
     double sqrWind = movingWindowInt();
 
 
 
 //  y2 = map(LPF_Data_BL, 0, 4095, 0, screenHeight);
-Serial.println(y);
-  y = y -  300; // offset
+//Serial.println(y);
+  y = y -  230; // offset
   // draw over line before writing new value
   tft.drawLine(x, 0, x, screenHeight, BG_COLOR);
   tft.drawLine(x+1, 0, x+1, screenHeight, BG_COLOR);
   // make sure grid is not erased
 //       if (sqr > 200.0) {
 if (movingWindowInt() > 30) {
+    PeriodOfRR = (millis() - heartRateTimer);
+      if (PeriodOfRR > QRS_MAX_TIME) {
+        double period = PeriodOfRR/1000;
+        double heartRate =  60 /period;
+        heartRateTimer = millis();
+        Serial.print("Heart rate is: ");
+        Serial.println(heartRate);
+        Serial.print("Heart rate is: ");
+        Serial.println(period);
+      } 
       tft.drawLine(x, 0, x, screenHeight, ILI9341_GREEN);
       tft.drawLine(x+1, 0, x+1, screenHeight, ILI9341_GREEN);
       tft.drawLine(x-1, 0, x-1, screenHeight, ILI9341_GREEN);
+      
     }
     // draw new data point, use thicker line
     tft.drawLine(xPrev, yPrev, x, y, LINE_COLOR);
