@@ -43,6 +43,8 @@ ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC);
 #define QRS_MAX_TIME 300  //ms
 #define AVERAGING 1 // num can be 1, 4, 8, 16 or 32.
 
+
+
 //const int buttonPin =  1;     // the number of the pushbutton pin.
 const int buttonPin =  1;     // the number of the pushbutton pin.
 // Variables will change:
@@ -97,7 +99,7 @@ void setup() {
   tft.setTextColor(TEXT_COLOR);
   tft.fillScreen(BG_COLOR);
 
-  startScreen();
+  defaultScreen();
   myTimer = millis();
 
   // Setup SD Card
@@ -149,7 +151,7 @@ void loop() {
     }
   } else {
     //Serial.println("Start Screen");
-    startScreen();
+    defaultScreen();
     stabilizedFlag = 0;
   }
 }
@@ -163,20 +165,22 @@ void startScreen() {
 int LPF_Data;
 int LPF_Data_BL;
 int LPF_Baseline;
-//float LPF_Beta = 0.075; // 0<Beta<1
-float LPF_Beta = 0.15; // 0<Beta<1
-
+float LPF_Beta = 0.075; // 0<Beta<1
+//float LPF_Beta = 0.15; // 0<Beta<1
+//#define PDB_SC_PDBEN_MASK                        0x80u
+//#define PDB_S_ERR_MASK                           0xFFu
 void ekgProg() {
   if (millis() - startTimer <= PROG_MAX_TIME) {
-    // put your main code here, to run repeatedly:
-    noInterrupts();
+
+    PDB0_SC &= ~PDB_SC_PDBEN;  // disable interrupts
     adcValueCopy = adcValue;
-    interrupts();
+    PDB0_SC |= PDB_SC_PDBEN;  // enable interrupts
+    PDB0_SC |= PDB_SC_SWTRIG;  // reset pdb
+
     adcValueCopy = 4095 - adcValueCopy;
-    //Serial.println("Before: ");
-    //Serial.println(adcValueCopy);
+
     LPF_Data = LPF_Data - (LPF_Beta * (LPF_Data - adcValueCopy));
-    LPF_Data_BL = Diff();
+    LPF_Data_BL = LPF();
     LPF_Baseline = LPF_Data - LPF_Data_BL;
     //Serial.println("Filter: ");
     //    Serial.println(LPF_Data);
@@ -221,12 +225,12 @@ void drawNewData() {
   drawGrid();
   //y = map(LPF_Data, 0, 4095, 0, screenHeight);
   // TODO this is a hack, map values better to fit screen later
-  y = map(LPF_Baseline * 2.8, 0, 4095, 0, screenHeight);
+  y = map(LPF_Baseline * 2.8, 0, 4095, 0, screenHeight) - 100;
   //  y = map(movingWindowInt(), 0, 4095, 0, screenHeight);
 
   //    y = map(squaring(), 0, 4095, 0, screenHeight + 100);
-  //Serial.print("Window: ");
-  //Serial.println(movingWindowInt());
+ // Serial.print("Window: ");
+  Serial.println(movingWindowInt());
   double sqr = squaring();
   double sqrWind = movingWindowInt();
 
@@ -240,13 +244,13 @@ void drawNewData() {
   tft.drawLine(x + 1, 0, x + 1, screenHeight, BG_COLOR);
   // make sure grid is not erased
   //       if (sqr > 200.0) {
-  if (movingWindowInt() > 30) {
+  if (movingWindowInt() > 200) {
     PeriodOfRR = (millis() - heartRateTimer);
     if (PeriodOfRR > QRS_MAX_TIME) {
       QRS_startFlag = 1;
       QRS_timer = millis();
-      Serial.println("RR interval: "); 
-      Serial.println(PeriodOfRR);
+      //Serial.println("RR interval: "); 
+      //Serial.println(PeriodOfRR);
       double period = PeriodOfRR / 1000;
       heartRate =  60 / period;
       heartRateTimer = millis();
@@ -258,10 +262,10 @@ void drawNewData() {
     tft.drawLine(x - 1, 0, x - 1, screenHeight, ILI9341_GREEN);
 
   }
-  if (QRS_startFlag && movingWindowInt() < 1) {
+  if (QRS_startFlag && (movingWindowInt() < 30)) {
     QRS_timer = millis() - QRS_timer;
-    Serial.print("QRS timer is: "); 
-    Serial.println(QRS_timer);
+    //Serial.print("QRS timer is: "); 
+    //Serial.println(QRS_timer);
     QRS_startFlag = 0;
   }
   // draw new data point, use thicker line
@@ -329,6 +333,7 @@ void stabilize2() {
     }
     Serial.print("Stable Loop");
     noInterrupts();
+
     adcValueCopy = adcValue;
     Serial.print("STABBBLE: ");
     Serial.println(LPF());
@@ -336,7 +341,7 @@ void stabilize2() {
     interrupts();
 
 
-    prevValues[bufferIndex] = adcValue;
+    prevValues[bufferIndex] =   adcValue; // should be the copy???
     bufferIndex++;
     if (bufferIndex > buffLength) {
       bufferIndex = 0;

@@ -136,7 +136,7 @@ double movingWindowInt() {
   double winSum = 0;
   prevWindowVals[0] = squaring();
   for (int i = 0; i < winSize; i++) {
-    winSum = prevWindowVals[i];
+    winSum += prevWindowVals[i];
   }
   winSum = winSum / winSize;
 
