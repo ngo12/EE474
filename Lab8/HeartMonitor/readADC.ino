@@ -1,11 +1,6 @@
 #define PDB_CH0C1_TOS 0x0100
 #define PDB_CH0C1_EN 0x01
 
-static const uint8_t channel2sc1a[] = {
-  5, 14, 8, 9, 13, 12, 6, 7, 15, 4,
-  0, 19, 3, 21, 26, 22
-};
-
 /*
   ADC_CFG1_ADIV(2)         Divide ratio = 4 (F_BUS = 48 MHz => ADCK = 12 MHz)
   ADC_CFG1_MODE(2)         Single ended 10 bit mode
@@ -31,7 +26,7 @@ void adcInit() {
   adcCalibrate();
 
   // Enable ADC interrupt, configure pin
-  ADC0_SC1A = ADC_SC1_AIEN | channel2sc1a[9];
+  ADC0_SC1A = ADC_SC1_AIEN | channel2sc1a[7];
   NVIC_ENABLE_IRQ(IRQ_ADC0);
 }
 
