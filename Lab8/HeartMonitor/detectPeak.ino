@@ -1,14 +1,13 @@
-#define THRESHOLD 1
+#define THRESHOLD 200
 
 int peakVal = 0;
 int upFlag = 0;
 int prevSignal = 0;
 int detectPeak(int currentSignal) {
   // Checks if there is a peak
-  if (upFlag && (currentSignal < prevSignal) && (prevSignal > THRESHOLD) && (currentSignal >> THRESHOLD)) {
+  if (upFlag && (currentSignal < prevSignal) && (prevSignal > THRESHOLD) && (currentSignal > THRESHOLD)) {
     peakVal = prevSignal;
   }
-
   // Checks if there is a rising edge 
   if (currentSignal > prevSignal) {
     upFlag = 1; 
@@ -32,7 +31,7 @@ void stabilize2() {
 
   int buffLength = 20;
   int valCopy;
-  int IntCopy;
+  int IntCopy = 0;
   int peakVal;
   int prevValues[buffLength];
   int enoughDataFlag = 0;
@@ -54,7 +53,7 @@ void stabilize2() {
     Serial.print("STABBBLE: ");
     Serial.println(LPF());
     valCopy = LPF();
-    IntCopy = movingAvgFilter();
+    IntCopy = movingWindowInt();
     interrupts();
     
     peakVal = detectPeak(IntCopy);
@@ -67,7 +66,7 @@ void stabilize2() {
       enoughDataFlag = 1;
     }
     if (enoughDataFlag) {
-      bufferStableFlag = 1;
+     // bufferStableFlag = 1;
       for (int i = 0; i < buffLength; i++) {
         if (!bufferStableFlag) {
           break;
