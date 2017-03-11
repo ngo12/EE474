@@ -17,6 +17,8 @@
 #include "ILI9341_t3.h"
 #include "ADC.h"
 #include <IntervalTimer.h>
+#include "BluefruitConfig.h"
+
 
 #define BG_COLOR ILI9341_WHITE
 #define GRID_COLOR ILI9341_RED
@@ -44,9 +46,8 @@ ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC);
 #define AVERAGING 1 // num can be 1, 4, 8, 16 or 32.
 
 
-
-//const int buttonPin =  1;     // the number of the pushbutton pin.
 const int buttonPin =  1;     // the number of the pushbutton pin.
+
 // Variables will change:
 int buttonState;             // the current reading from the input pin
 int lastButtonState = HIGH;   // the previous reading from the input pin
@@ -70,36 +71,39 @@ IntervalTimer myADCTimer;
 File myFile;
 String initials = "KARLBN";
 String sRate = "250";
-
 const int chipSelect = 4;
 int fileHeadingNumber = 0;
+String fileName = "KARLBN0.txt";
 
+// For ECG program 
 volatile int bufferPos = 0;
 volatile int stabilizedFlag = 0;
 int myBuffer[BUFFER_SIZE];
 volatile int adcValue;
+
+// For setting PDB registers  
+static const uint8_t channel2sc1a[] = {
+  5, 14, 8, 9, 13, 12, 6, 7, 15, 4,
+  0, 19, 3, 21, 26, 22
+};
+
 void setup() {
 
   Serial.begin(9600);
-
+  
   // ADC INIT
   pinMode(INPUT_PIN, INPUT);
   pinMode(buttonPin, INPUT_PULLUP);
   adcInit();
   pdbInit();
-
+  connectScreen();
+  blueInit();
+  tft.fillScreen(BG_COLOR);
 
   bufferPos = 0;
   adcValue = 0;
 
-  // LCD Screen Setup
-  tft.begin();
-  tft.setRotation(3);
-  tft.setTextSize(2);
-  tft.setTextColor(TEXT_COLOR);
-  tft.fillScreen(BG_COLOR);
-
-  defaultScreen();
+  defaultScreen(adcValue);
   myTimer = millis();
 
   // Setup SD Card
@@ -124,15 +128,19 @@ void loop() {
 
   buttonState = onOff();
   if (buttonState) {
-    //  Serial.println("Button On");
     if (progRunning) {
       //  Serial.println("Set Prog Running to 0");
       progRunning = 0;
+      
+      // Enable ADC interrupt, configure pin to ECG output 
+      ADC0_SC1A = ADC_SC1_AIEN | 0;
+      ADC0_SC1A = ADC_SC1_AIEN | channel2sc1a[7];
     } else {
       //  Serial.println("Set Prog Running to 1");
-      progRunning = 1;
+      chooseOption(adcValue);
     }
     buttonState = 0;
+    //  Serial.println("Button On");
     tft.fillScreen(BG_COLOR);
   }
 
@@ -147,11 +155,11 @@ void loop() {
       ekgProg();
     } else {
       //Serial.println("Start Screen");
-      startScreen();
+      defaultScreen(adcValue);
     }
   } else {
     //Serial.println("Start Screen");
-    defaultScreen();
+    defaultScreen(adcValue);
     stabilizedFlag = 0;
   }
 }
@@ -200,6 +208,10 @@ void ekgProg() {
     tft.fillScreen(BG_COLOR);
     writeCard(myBuffer, BUFFER_SIZE);
     bufferPos = 0;
+    
+    // Enable ADC interrupt, configure pin to ECG output 
+    ADC0_SC1A = ADC_SC1_AIEN | 0;
+    ADC0_SC1A = ADC_SC1_AIEN | channel2sc1a[7];
   }
 }
 
@@ -299,8 +311,6 @@ void drawNewData() {
   xPrev = x - 1;
   yPrev = y;
   y2Prev = y2;
-
-
 
   if (x > screenWidth) {
     x = 0;
