@@ -1,31 +1,80 @@
-float numerator[3 + 1] =
-{
-    0.002040279141687, /* z^{0} */
-    0.006120837425060, /* z^{-1} */
-    0.006120837425060, /* z^{-2} */
-    0.002040279141687, /* z^{-3} */
-};
+//float numerator[3 + 1] =
+//{
+//    0.002040279141687, /* z^{0} */
+//    0.006120837425060, /* z^{-1} */
+//    0.006120837425060, /* z^{-2} */
+//    0.002040279141687, /* z^{-3} */
+//};
+//
+//
+//float denominator[3 + 1] =
+//{
+//    1, /* z^{0} */
+//    -2.448746826101290, /* z^{-1} */
+//    2.039304153327110, /* z^{-2} */
+//    -0.574235094092326, /* z^{-3} */
+//};
 
 
-float denominator[3 + 1] =
-{
-    1, /* z^{0} */
-    -2.448746826101290, /* z^{-1} */
-    2.039304153327110, /* z^{-2} */
-    -0.574235094092326, /* z^{-3} */
+//// 2nd order bandpass, butterworth, fs = 250, 3-18Hz
+float numerator[5] = {
+     0.1602003508877,                 0,  -0.1602003508877, 0, 0
 };
+float denominator[5] = {
+                   1,   -1.650692627742,   0.6795992982245,0, 0
+};
+
+// 2nd order bandpass, butterworth, fs = 250, 3-20Hz
+//float numerator[4] = {
+//     0.1782658075708,                 0,  -0.1782658075708, 0
+//};
+//
+//float denominator[4] = {
+//                   1,    -1.61194273962,   0.6434683848585, 0
+//};
+
+// 2nd order bandpass, butterworth, fs = 250, 3-22Hz
+//float numerator[4] = {
+//     0.1957561306596,                 0,  -0.1957561306596, 0
+//};
+//
+//float denominator[4] = {
+//                   1,   -1.574426496615,   0.6084877386808, 0
+//};
+
+// 4nd order bandpass, butterworth, fs = 250, 3-18Hz
+//float numerator[5] = {
+//    0.02785976611714,                 0, -0.05571953223427,                 0,
+//    0.02785976611714
+//};
+//
+//float denominator[5] = {
+//                   1,   -3.415665838969,    4.433376875868,   -2.603723462679,
+//     0.5869195080612
+//};
+
+// 4nd order bandpass, butterworth, fs = 250, 3-20Hz
+//float numerator[5] = {
+//    0.03476159636374,                 0, -0.06952319272748,                 0,
+//    0.03476159636374
+//};
+//float denominator[5] = {
+//                   1,   -3.342366230233,    4.249988354688,   -2.453316068149,
+//     0.5467810989729
+//};
+
 
 // butterworth filter
-double inSignal[4] = {0, 0, 0, 0};
-double outSignal[4] = {0, 0, 0, 0}; 
+double inSignal[5] = {0, 0, 0, 0, 0};
+double outSignal[5] = {0, 0, 0, 0, 0}; 
 double LPF() {
 inSignal[0] = (double) adcValueCopy; 
-outSignal[0] = numerator[0]*inSignal[0] +  numerator[1]*inSignal[1] +  numerator[2]*inSignal[2]  +  numerator[3]*inSignal[3] -  denominator[1]*outSignal[1] - denominator[2]*outSignal[2] - denominator[3]*outSignal[3]; 
-for (int i = 0; i < 4 - 1; i++) {
+outSignal[0] = numerator[0]*inSignal[0] +  numerator[1]*inSignal[1] +  numerator[2]*inSignal[2]  +  numerator[3]*inSignal[3] +  numerator[4]*inSignal[4]-  denominator[1]*outSignal[1] - denominator[2]*outSignal[2] - denominator[3]*outSignal[3] - denominator[4]*outSignal[4]; 
+for (int i = 0; i < 5 - 1; i++) {
   inSignal[i+1] = inSignal[i]; 
 }
 
-for (int i = 0; i < 4 - 1; i++) {
+for (int i = 0; i < 5 - 1; i++) {
   outSignal[i+1] = outSignal[i];
 }
 return  outSignal[0];
@@ -135,6 +184,7 @@ double prevWindowVals[winSize];
 double movingWindowInt() {
   double winSum = 0;
   prevWindowVals[0] = squaring();
+//  prevWindowVals[0] = LPF();
   for (int i = 0; i < winSize; i++) {
     winSum += prevWindowVals[i];
   }
@@ -145,6 +195,50 @@ double movingWindowInt() {
   }
   return winSum;
 }
+
+// new LPF
+//double in3[13] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+//void LPF3() {
+//    float den[2 + 1] =
+//{
+//  1,
+//  -2,
+//  1
+//  };
+//
+//
+//float num[12 + 1] =
+//{
+//  1,
+//  0,
+//  0,
+//  0,
+//  0,
+//  0,
+//  -2,
+//  0,
+//  0,
+//  0,
+//  0,
+//  0,
+//  1
+//};
+//  int currentIndex = bufferPos;
+////  in3[0] = (double) myBuffer[currentIndex]; 
+//  out3[0] = num[0]*(double)myBuffer[currentIndex]
+//          + num[6]*(double)myBuffer[currentIndex-6]
+//          + num[12]*(double)myBuffer[currentIndex-12]
+////          -  den[0]*out3[0]   
+//          - den[1]*out3[1] 
+//          - den[2]*out3[2];
+////for (int i = 0; i < 13-1; i++) {
+////  in3[i+1] = in3[i]; 
+////}
+//for (int i = 0; i < 3-1; i++) {
+//  out3[i+1] = out3[i];
+//}
+//  
+//}
 
 
 

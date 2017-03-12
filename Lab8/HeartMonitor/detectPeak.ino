@@ -66,7 +66,7 @@ void stabilize2() {
       enoughDataFlag = 1;
     }
     if (enoughDataFlag) {
-     // bufferStableFlag = 1;
+      bufferStableFlag = 1;
       for (int i = 0; i < buffLength; i++) {
         if (!bufferStableFlag) {
           break;

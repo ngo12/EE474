@@ -44,6 +44,7 @@ ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC);
 #define PROG_MAX_TIME 30000 //ms
 #define QRS_MAX_TIME 300  //ms
 #define AVERAGING 1 // num can be 1, 4, 8, 16 or 32.
+#define MIN_COUNT_OF_REPEAT 10
 
 
 const int buttonPin =  1;     // the number of the pushbutton pin.
@@ -53,6 +54,8 @@ int buttonState;             // the current reading from the input pin
 int lastButtonState = HIGH;   // the previous reading from the input pin
 int startEKG = 1;                  // flag for whether the cube should rotate
 double heartRate = 0;
+int bradycardia = 0; 
+int tachycardia = 0;
 
 unsigned long myTimer = 0;
 unsigned long startTimer = 0;
@@ -97,7 +100,7 @@ void setup() {
   adcInit();
   pdbInit();
   connectScreen();
-  blueInit();
+  //blueInit();
   tft.fillScreen(BG_COLOR);
 
   bufferPos = 0;
@@ -123,6 +126,7 @@ unsigned long progTimer = 0;
 // calculated by: screen width / number of grid lines along width = pixels per grid block
 // then, 40 ms / pixels per grid block. (40ms is the length of time per grid block)
 unsigned long timePerPixel = 40 / (screenWidth / numLinesWidth);  // ms
+
 void loop() {
   //  Serial.println("Main Loop");
 
@@ -158,7 +162,6 @@ void loop() {
       defaultScreen(adcValue);
     }
   } else {
-    //Serial.println("Start Screen");
     defaultScreen(adcValue);
     stabilizedFlag = 0;
   }
@@ -170,37 +173,34 @@ void startScreen() {
   tft.println("Press Button to Start!");
 }
 
+long sampleTimer = 0;
+int currentIx = 0;
 int LPF_Data;
 int LPF_Data_BL;
 int LPF_Baseline;
-float LPF_Beta = 0.075; // 0<Beta<1
+float LPF_Beta = 0.15; // 0<Beta<1
 //float LPF_Beta = 0.15; // 0<Beta<1
 //#define PDB_SC_PDBEN_MASK                        0x80u
 //#define PDB_S_ERR_MASK                           0xFFu
 void ekgProg() {
   if (millis() - startTimer <= PROG_MAX_TIME) {
-
-    PDB0_SC &= ~PDB_SC_PDBEN;  // disable interrupts
     adcValueCopy = adcValue;
-    PDB0_SC |= PDB_SC_PDBEN;  // enable interrupts
-    PDB0_SC |= PDB_SC_SWTRIG;  // reset pdb
+//    adcValueCopy = 4095 - adcValueCopy;
+//    LPF_Data = LPF_Data - (LPF_Beta * (LPF_Data - adcValueCopy));
+    //LPF_Data_BL = LPF();
+    //LPF_Baseline = LPF_Data - LPF_Data_BL;
 
-    adcValueCopy = 4095 - adcValueCopy;
-
-    LPF_Data = LPF_Data - (LPF_Beta * (LPF_Data - adcValueCopy));
-    LPF_Data_BL = LPF();
-    LPF_Baseline = LPF_Data - LPF_Data_BL;
-    //Serial.println("Filter: ");
-    //    Serial.println(LPF_Data);
-    //LPF_Data = adcValueCopy;
-
+    // drawNewData2();
+    
     //MovingAvg = movingAvgFilter();
     //MovingAvg = adcValueCopy;
     //Serial.println("Moving AVG: ");
     //Serial.println(MovingAvg);
+//    Serial.println(myTimer);
     myTimer = millis() - myTimer;
-    if (myTimer >= timePerPixel) {
+    if (myTimer >= 1000 ) {
       drawNewData();
+      delay(10);
       myTimer = millis();
     }
   } else {
@@ -209,7 +209,7 @@ void ekgProg() {
     writeCard(myBuffer, BUFFER_SIZE);
     bufferPos = 0;
     
-    // Enable ADC interrupt, configure pin to ECG output 
+    // Enable ADC interrupt, configure pin to Pot
     ADC0_SC1A = ADC_SC1_AIEN | 0;
     ADC0_SC1A = ADC_SC1_AIEN | channel2sc1a[7];
   }
@@ -231,29 +231,37 @@ int onOff() {
 
 }
 
+//int drawIndex = 0;
+//void drawNewData2() {
+//  y = map(LPF_Data, 0, 4095, 0, screenHeight);
+//  tft.drawLine(myBuffer[, yPrev, x, y, LINE_COLOR);
+//}
+
 int y2Prev = 0;
 int QRS_startFlag = 0; 
-void drawNewData() {
-  drawGrid();
-  //y = map(LPF_Data, 0, 4095, 0, screenHeight);
-  // TODO this is a hack, map values better to fit screen later
-  y = map(LPF_Baseline * 2.8, 0, 4095, 0, screenHeight) - 100;
-  //  y = map(movingWindowInt(), 0, 4095, 0, screenHeight);
+int countBrad = 0;
+int countTach = 0;
 
-  //    y = map(squaring(), 0, 4095, 0, screenHeight + 100);
- // Serial.print("Window: ");
-  Serial.println(movingWindowInt());
+void drawNewData() {
+if (bufferPos > 12) {
+//  LPF3();
+  // For 4th Order 3-20Hz
+//  y = map(LPF(),0, 4095, screenHeight + 360, 0) * 5;
+//  y = y - 850;
+  // For 2nd order 3-18Hz
+  y = map(LPF(),0, 4095, screenHeight + 360, 0) * 2;
+//  y = map(LPF(),0, 4095, screenHeight + 360, 0) * 2;
+  y = y - 560;
+} else {
+  y = map(adcValue,0, 4095, screenHeight, 0);
+}
+
   double sqr = squaring();
   double sqrWind = movingWindowInt();
 
-
-
-  //  y2 = map(LPF_Data_BL, 0, 4095, 0, screenHeight);
-  //Serial.println(y);
-  y = y -  230; // offset
   // draw over line before writing new value
   tft.drawLine(x, 0, x, screenHeight, BG_COLOR);
-  tft.drawLine(x + 1, 0, x + 1, screenHeight, BG_COLOR);
+  //tft.drawLine(x + 1, 0, x + 1, screenHeight, BG_COLOR);
   // make sure grid is not erased
   //       if (sqr > 200.0) {
   if (movingWindowInt() > 200) {
@@ -266,8 +274,23 @@ void drawNewData() {
       double period = PeriodOfRR / 1000;
       heartRate =  60 / period;
       heartRateTimer = millis();
-      Serial.print("Heart rate is: ");
-      Serial.println(heartRate);
+     // Serial.print("Heart rate is: ");
+      //Serial.println(heartRate);
+      if (heartRate < 60) {
+        
+        countBrad++; 
+        if (countBrad >= MIN_COUNT_OF_REPEAT) {
+          bradycardia = 1;
+        }
+      } else if (heartRate > 110) {
+        countTach++;
+        if (countTach >= MIN_COUNT_OF_REPEAT) {
+          tachycardia = 1;
+        }
+      } else {
+        countTach = 0;
+        countBrad = 0;
+      }
     }
     tft.drawLine(x, 0, x, screenHeight, ILI9341_GREEN);
     tft.drawLine(x + 1, 0, x + 1, screenHeight, ILI9341_GREEN);
@@ -315,6 +338,8 @@ void drawNewData() {
   if (x > screenWidth) {
     x = 0;
     xPrev = 0;
+    tft.fillScreen(BG_COLOR);
+    drawGrid();
   }
 
 }
@@ -420,7 +445,6 @@ void writeCard(int* buff, int bufferLength) {
     Serial.println("done.");
   } else {
     // if the file didn't open, print an error:
-    Serial.println("error opening file");
   }
   fileHeadingNumber++;
 }

@@ -39,7 +39,7 @@ void chooseOption(int option) {
     progRunning = 1;  
     // Enable ADC interrupt, configure pin to ECG output 
     ADC0_SC1A = ADC_SC1_AIEN | 0;
-    ADC0_SC1A = ADC_SC1_AIEN | channel2sc1a[9];
+    ADC0_SC1A = ADC_SC1_AIEN | channel2sc1a[0];
   } else {
     sendSD(fileName);
   }
