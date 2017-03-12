@@ -57,6 +57,8 @@ double heartRate = 0;
 int bradycardia = 0; 
 int tachycardia = 0;
 
+double adaptiveThresh = 0;
+
 unsigned long myTimer = 0;
 unsigned long startTimer = 0;
 double heartRateTimer = 0;
@@ -242,8 +244,8 @@ int QRS_startFlag = 0;
 int countBrad = 0;
 int countTach = 0;
 
+double sqrWind = 0;
 void drawNewData() {
-if (bufferPos > 12) {
 //  LPF3();
   // For 4th Order 3-20Hz
 //  y = map(LPF(),0, 4095, screenHeight + 360, 0) * 5;
@@ -252,30 +254,46 @@ if (bufferPos > 12) {
   y = map(LPF(),0, 4095, screenHeight + 360, 0) * 2;
 //  y = map(LPF(),0, 4095, screenHeight + 360, 0) * 2;
   y = y - 560;
-} else {
-  y = map(adcValue,0, 4095, screenHeight, 0);
-}
+  
 
   double sqr = squaring();
-  double sqrWind = movingWindowInt();
-
+//  double sqrWind = movingWindowInt();
+  sqrWind = lowPassExponential(0.8, sqrWind); // input first param [0 to 1]
+//  Serial.println(sqrWind);
   // draw over line before writing new value
-  tft.drawLine(x, 0, x, screenHeight, BG_COLOR);
+//  tft.drawLine(x, 0, x, screenHeight, BG_COLOR);
   //tft.drawLine(x + 1, 0, x + 1, screenHeight, BG_COLOR);
   // make sure grid is not erased
   //       if (sqr > 200.0) {
-  if (movingWindowInt() > 200) {
+
+    Serial.println(sqrWind);
+    Serial.println(adaptiveThresh);
+if (sqrWind < 4  && sqrWind > 0.5) {
+    if (QRS_startFlag) {
+      QRS_timer = millis() - QRS_timer;
+//      Serial.print("QRS timer is: ");
+//      Serial.println(QRS_timer);
+      tft.drawLine(x, 0, x, screenHeight, ILI9341_BLUE);
+    tft.drawLine(x + 1, 0, x + 1, screenHeight, ILI9341_BLUE);
+    tft.drawLine(x - 1, 0, x - 1, screenHeight, ILI9341_BLUE);
+    }
+    QRS_startFlag = 0;
+    QRS_timer = millis();
+   // tft.drawLine(x, 0, x, screenHeight, ILI9341_MAGENTA);
+}
+//  Serial.print("SqrWind: ");
+//  Serial.println(sqrWind);
+  if (sqrWind > adaptiveThresh) {
     PeriodOfRR = (millis() - heartRateTimer);
     if (PeriodOfRR > QRS_MAX_TIME) {
       QRS_startFlag = 1;
-      QRS_timer = millis();
       //Serial.println("RR interval: "); 
       //Serial.println(PeriodOfRR);
       double period = PeriodOfRR / 1000;
       heartRate =  60 / period;
       heartRateTimer = millis();
-     // Serial.print("Heart rate is: ");
-      //Serial.println(heartRate);
+//      Serial.print("Heart rate is: ");
+//      Serial.println(heartRate);
       if (heartRate < 60) {
         
         countBrad++; 
@@ -296,12 +314,6 @@ if (bufferPos > 12) {
     tft.drawLine(x + 1, 0, x + 1, screenHeight, ILI9341_GREEN);
     tft.drawLine(x - 1, 0, x - 1, screenHeight, ILI9341_GREEN);
 
-  }
-  if (QRS_startFlag && (movingWindowInt() < 30)) {
-    QRS_timer = millis() - QRS_timer;
-    //Serial.print("QRS timer is: "); 
-    //Serial.println(QRS_timer);
-    QRS_startFlag = 0;
   }
   // draw new data point, use thicker line
   tft.drawLine(xPrev, yPrev, x, y, LINE_COLOR);
@@ -345,19 +357,6 @@ if (bufferPos > 12) {
 }
 
 
-void clearTextNumbers(char* str) {
-  tft.setCursor(0, 0);
-  tft.println("Stabilizing...");
-  tft.print("Upper Threshold: ");
-  tft.println("    ");
-  tft.print("Lower Threshold: ");
-  tft.println("    ");
-  tft.print("Current value: ");
-  tft.setTextColor(BG_COLOR);
-  tft.println(str);
-  tft.setTextColor(TEXT_COLOR);
-
-}
 
 void drawGrid() {
   int stepSizeWidth = (screenWidth / numLinesWidth);

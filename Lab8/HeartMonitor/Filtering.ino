@@ -93,9 +93,10 @@ double movingAvgFilter() {
   return MovingAvgSum/windowSize;
 }
 
-double lowPassExponential()
+
+double lowPassExponential(float beta, double prevOutput)
 {
-    return adcValueCopy*LPF_Beta + (1-LPF_Beta)*LPF_Data;  // ensure factor belongs to  [0,1]
+  return squaring()*beta + (1-beta)*prevOutput;  // ensure factor belongs to  [0,1]
 }
 
 
@@ -179,19 +180,21 @@ double squaring() {
   return (pow(Diff(),2));
 }
 
-const int winSize = 10;
-double prevWindowVals[winSize]; 
+const int winSize = 100;
+double prevWindowVals[winSize] = {0}; 
 double movingWindowInt() {
   double winSum = 0;
   prevWindowVals[0] = squaring();
 //  prevWindowVals[0] = LPF();
   for (int i = 0; i < winSize; i++) {
-    winSum += prevWindowVals[i];
+    winSum = winSum + prevWindowVals[i];
   }
   winSum = winSum / winSize;
 
   for (int i = 0; i < winSize-1; i++) {
     prevWindowVals[i+1] = prevWindowVals[i];
+    
+//    prevWindowVals[i+1] = prevWindowVals[i];
   }
   return winSum;
 }
