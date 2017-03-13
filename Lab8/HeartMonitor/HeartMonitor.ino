@@ -10,6 +10,8 @@
 
 */
 // Hello
+
+
 #include <stdint.h>
 #include <SPI.h>
 #include <SD.h>
@@ -18,13 +20,16 @@
 #include "ADC.h"
 #include <IntervalTimer.h>
 #include "BluefruitConfig.h"
+#include "font_RussoOne-Regular.h"
+#include "font_AwesomeF100.h"
 
-
+#define DEF_FONT RussoOne_18
 #define BG_COLOR ILI9341_WHITE
 #define GRID_COLOR ILI9341_RED
 #define LINE_COLOR ILI9341_BLACK
 #define LINE_COLOR2 ILI9341_BLUE
 #define TEXT_COLOR ILI9341_BLACK
+#define TEXT_HI ILI9341_GREEN
 // For the Adafruit shield, these are the default.
 #define TFT_DC 9
 #define TFT_CS 10
@@ -45,7 +50,7 @@ ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC);
 #define QRS_MAX_TIME 300  //ms
 #define AVERAGING 1 // num can be 1, 4, 8, 16 or 32.
 #define MIN_COUNT_OF_REPEAT 10
-
+#define DEF_THRESH 30
 
 const int buttonPin =  1;     // the number of the pushbutton pin.
 
@@ -108,7 +113,7 @@ void setup() {
   bufferPos = 0;
   adcValue = 0;
 
-  defaultScreen(adcValue);
+  defaultScreen2(adcValue);
   myTimer = millis();
 
   // Setup SD Card
@@ -153,18 +158,22 @@ void loop() {
   if (progRunning) {
     if (!stabilizedFlag) {
       //Serial.println("Stabilizing..");
-      stabilize2();
       tft.fillScreen(BG_COLOR);
+      stabilize2();
+      //tft.fillScreen(BG_COLOR);
+//      drawGrid();
+//      textResultsBorder();
+//      textResults(0, 0);
     }
     if (progRunning) {
       //Serial.println("EKG Prog");
       ekgProg();
     } else {
       //Serial.println("Start Screen");
-      defaultScreen(adcValue);
+      defaultScreen2(adcValue);
     }
   } else {
-    defaultScreen(adcValue);
+    defaultScreen2(adcValue);
     stabilizedFlag = 0;
   }
 }
@@ -245,6 +254,7 @@ int countBrad = 0;
 int countTach = 0;
 
 double sqrWind = 0;
+int QRScopy = 0;
 void drawNewData() {
 //  LPF3();
   // For 4th Order 3-20Hz
@@ -253,7 +263,7 @@ void drawNewData() {
   // For 2nd order 3-18Hz
   y = map(LPF(),0, 4095, screenHeight + 360, 0) * 2;
 //  y = map(LPF(),0, 4095, screenHeight + 360, 0) * 2;
-  y = y - 560;
+  y = y - 510;
   
 
   double sqr = squaring();
@@ -266,16 +276,20 @@ void drawNewData() {
   // make sure grid is not erased
   //       if (sqr > 200.0) {
 
-    Serial.println(sqrWind);
-    Serial.println(adaptiveThresh);
+//    Serial.println(sqrWind);
+//    Serial.println(adaptiveThresh);
+//    Serial.println(localThresh / (maxBeats+1));
 if (sqrWind < 4  && sqrWind > 0.5) {
     if (QRS_startFlag) {
       QRS_timer = millis() - QRS_timer;
-//      Serial.print("QRS timer is: ");
-//      Serial.println(QRS_timer);
-      tft.drawLine(x, 0, x, screenHeight, ILI9341_BLUE);
-    tft.drawLine(x + 1, 0, x + 1, screenHeight, ILI9341_BLUE);
-    tft.drawLine(x - 1, 0, x - 1, screenHeight, ILI9341_BLUE);
+      QRScopy = (int)QRS_timer;
+      Serial.print("QRS timer is: ");
+      Serial.println(QRS_timer);
+      Serial.print("QRS(int) timer is: ");
+      Serial.println((int)QRS_timer);
+      tft.drawLine(x, screenHeight-20, x, screenHeight, ILI9341_MAGENTA);
+    tft.drawLine(x + 1, screenHeight-20, x + 1, screenHeight, ILI9341_MAGENTA);
+    tft.drawLine(x - 1, screenHeight-20, x - 1, screenHeight, ILI9341_MAGENTA);
     }
     QRS_startFlag = 0;
     QRS_timer = millis();
@@ -310,9 +324,9 @@ if (sqrWind < 4  && sqrWind > 0.5) {
         countBrad = 0;
       }
     }
-    tft.drawLine(x, 0, x, screenHeight, ILI9341_GREEN);
-    tft.drawLine(x + 1, 0, x + 1, screenHeight, ILI9341_GREEN);
-    tft.drawLine(x - 1, 0, x - 1, screenHeight, ILI9341_GREEN);
+    tft.drawLine(x, screenHeight-20, x, screenHeight, ILI9341_GREEN);
+    tft.drawLine(x + 1, screenHeight-20, x + 1, screenHeight, ILI9341_GREEN);
+    tft.drawLine(x - 1, screenHeight-20, x - 1, screenHeight, ILI9341_GREEN);
 
   }
   // draw new data point, use thicker line
@@ -352,6 +366,8 @@ if (sqrWind < 4  && sqrWind > 0.5) {
     xPrev = 0;
     tft.fillScreen(BG_COLOR);
     drawGrid();
+    textResultsBorder();
+    textResults((int)heartRate, QRScopy);
   }
 
 }
@@ -456,6 +472,67 @@ void addToBuffer(int val) {
       bufferPos = 0;
     }
   }
+}
+
+void textResultsBorder() {
+  tft.fillRect(6, 6, screenWidth-13, 32, ILI9341_DARKGREY);
+  tft.fillRect(9, 9, screenWidth-25, 26, ILI9341_BLACK);
+}
+
+void textResults(int hr, int qrsi) {
+  tft.setFont(RussoOne_14);
+  tft.setCursor(15, 10);
+  tft.setTextColor(ILI9341_CYAN);
+  
+  tft.print("HR: ");
+  if (hr > 200 || hr == -1) {
+    tft.print("---");
+  } else if (hr < 100) {
+    tft.print(" ");
+    tft.print(hr);
+  } else {
+    tft.print(hr);
+  }
+  tft.print("  ");
+
+  tft.setTextColor(ILI9341_GREEN);
+  tft.print("QRSI: ");
+  if (qrsi > 200 || qrsi == -1) {
+    tft.print("---");
+  } else if (qrsi < 100) {
+    tft.print(" ");
+    tft.print(qrsi);
+  } else {
+    tft.print(qrsi);
+  }
+  tft.print("  ");
+
+  tft.setTextColor(ILI9341_MAGENTA);
+  tft.print("BC: ");
+  tft.setFont(AwesomeF100_14);
+  if (hr < 60 && hr != -1) {
+    tft.setTextColor(ILI9341_PINK);
+    tft.print((char)25);
+  } else {
+    tft.setTextColor(ILI9341_GREEN);
+    tft.print((char)24);
+  }
+  tft.setTextColor(ILI9341_MAGENTA);
+  tft.setFont(RussoOne_14);
+  tft.print(" ");
+  
+  tft.print("TC: ");
+  tft.setFont(AwesomeF100_14);
+  if (hr > 110 && hr != -1) {
+    tft.setTextColor(ILI9341_PINK);
+    tft.print((char)25);
+  } else {
+    tft.setTextColor(ILI9341_GREEN);
+    tft.print((char)24);
+  }
+  
+  tft.setTextColor(TEXT_COLOR);
+  tft.setFont(DEF_FONT);
 }
 
 
