@@ -49,19 +49,23 @@ void sendingSDScreen2() {
 void defaultScreen2(int option) {
   screenHeader();
   if (option <= ((4096/2) - 1)) { 
-    tft.setCursor(20, 160);
+    tft.setCursor(20, 170);
+    tft.drawRoundRect(15, 165, 120, 30, 2, ILI9341_BLUE);
     tft.setTextColor(TEXT_HI);
     tft.println("Measure");
     tft.setTextColor(TEXT_COLOR);
-    tft.setCursor(140, 160);
-    tft.println("Display File" );
+    tft.setCursor(210, 170);
+    tft.drawRoundRect(205, 165, 75, 30, 2, BG_COLOR);
+    tft.println("Files" );
   } else {
-    tft.setCursor(20, 160);
+    tft.setCursor(20, 170);
+    tft.drawRoundRect(15, 165, 120, 30, 2, BG_COLOR);
     tft.setTextColor(TEXT_COLOR);
     tft.println("Measure");
     tft.setTextColor(TEXT_HI);
-    tft.setCursor(140, 160);
-    tft.println("Display File" );
+    tft.setCursor(210, 170);
+    tft.drawRoundRect(205, 165, 75, 30, 2, ILI9341_BLUE);
+    tft.println("Files" );
   }
 }
 
@@ -70,6 +74,7 @@ void defaultScreen2(int option) {
 void screenHeader(){
     // draw border
   // top
+
   tft.drawLine(0, 0, screenWidth - 1, 0, SCREEN_BORDER_COLOR);
   tft.drawLine(0, 0, screenWidth - 1, 1, SCREEN_BORDER_COLOR);
   tft.drawLine(0, 0, screenWidth - 1, 2, SCREEN_BORDER_COLOR);
@@ -102,18 +107,20 @@ void screenHeader(){
 void displayResults(int hr, int qrsi, int bc, int tc, int pac) {
   tft.fillScreen(BG_COLOR);
   tft.setFont(RussoOne_28);
-  tft.setCursor(40, 10);
+  tft.setCursor(100, 10);
   tft.setTextColor(TEXT_COLOR);
   
   tft.println("Results:");
   tft.setFont(DEF_FONT);
   tft.setCursor(10, 50);
   
-  tft.print("Average Heart Rate (BPM): ");
-  tft.println(hr);
+  tft.print("Avg HR (BPM): ");
+  tft.print(hr);
+  tft.setCursor(10, 74);
   
-  tft.print("Average QRS Interval (ms): ");
-  tft.println(qrsi);
+  tft.print("Avg QRSI (ms): ");
+  tft.print(qrsi);
+  tft.setCursor(10, 98);
   
   tft.print("Bradycardia: ");
   tft.setFont(AwesomeF100_18);
@@ -126,7 +133,7 @@ void displayResults(int hr, int qrsi, int bc, int tc, int pac) {
   }
   tft.setFont(DEF_FONT);
   tft.setTextColor(TEXT_COLOR);
-  tft.println();
+  tft.setCursor(10, 122);
   
   tft.print("Tachycardia: ");
   tft.setFont(AwesomeF100_18);
@@ -139,7 +146,7 @@ void displayResults(int hr, int qrsi, int bc, int tc, int pac) {
   }
   tft.setFont(DEF_FONT);
   tft.setTextColor(TEXT_COLOR);
-  tft.println();
+  tft.setCursor(10, 146);
   
   tft.print("PAC: ");
   tft.setFont(AwesomeF100_18);
@@ -151,33 +158,45 @@ void displayResults(int hr, int qrsi, int bc, int tc, int pac) {
     tft.print((char)24);
   }
   tft.setFont(DEF_FONT);
-  tft.println();
+  tft.print("\n");
 
   // Select whether to save raw or filtered data
-  saveRaw = 1;
-  tft.setCursor(10, screenHeight-20);
-  tft.setTextColor(ILI9341_GREEN);
-  tft.print("Save Raw Data");
-  tft.setTextColor(TEXT_COLOR);
-  tft.setCursor(screenWidth - 60, screenHeight-20);
-  tft.print("Save Filt. Data");
+  
+//  tft.setCursor(10, screenHeight-20);
+//  tft.setTextColor(ILI9341_GREEN);
+//  tft.print("Save Raw");
+//  tft.setTextColor(TEXT_COLOR);
+//  tft.setCursor(screenWidth - 130, screenHeight-20);
+//  tft.print("Save Filt.");
+
+    // Enable ADC interrupt, configure pin to Pot
+    ADC0_SC1A = ADC_SC1_AIEN | 0;
+    ADC0_SC1A = ADC_SC1_AIEN | channel2sc1a[7];
+
   // press button to go back to main menu
   while (!buttonState) {
-    if (saveRaw) {
-      // if pot is on left half
-      // do nothing
-      // else, pot on right half
-      // redraw text with right side highlighted, saveRaw = 0
+    if (adcValue <= ((4096/2) - 1)) {
+      saveRaw = 1;
+      tft.setCursor(10, screenHeight-20);
+      tft.setTextColor(ILI9341_GREEN);
+      tft.print("Save Raw");
+      tft.setTextColor(TEXT_COLOR);
+      tft.setCursor(screenWidth - 130, screenHeight-20);
+      tft.print("Save Filt.");
     } else {
-      // if pot is on left half
-      // redraw text with left side highlighted, saveRaw = 1
-      // else, pot on right half
-      // do nothing
+      saveRaw = 0;
+      tft.setCursor(10, screenHeight-20);
+      tft.setTextColor(TEXT_COLOR);
+      tft.print("Save Raw");
+      tft.setTextColor(ILI9341_GREEN);
+      tft.setCursor(screenWidth - 130, screenHeight-20);
+      tft.print("Save Filt.");
     }
     buttonState = onOff();
   }
 
   tft.setTextColor(TEXT_COLOR);
   tft.setFont(DEF_FONT);
+  tft.fillScreen(BG_COLOR);
 }
 

@@ -63,6 +63,7 @@ int bradycardia = 0;
 int tachycardia = 0;
 int pac = 0;
 
+double RR[7] = {0};  // holds current and prev RR interval values
 double adaptiveThresh = 0;
 
 unsigned long myTimer = 0;
@@ -77,14 +78,6 @@ int screenHeight = 240;
 int numLinesWidth = 20;
 int numLinesHeight = 15;
 IntervalTimer myADCTimer;
-
-// For SD Card
-File myFile;
-String initials = "KARLBN";
-String sRate = "250";
-const int chipSelect = 4;
-int fileHeadingNumber = 0;
-String fileName = "KARLBN0.txt";
 
 // For ECG program 
 volatile int bufferPos = 0;
@@ -107,8 +100,9 @@ void setup() {
   pinMode(buttonPin, INPUT_PULLUP);
   adcInit();
   pdbInit();
-  connectScreen();
-  //blueInit();
+  connectScreen2();
+  blueInit();
+  sdInit();
   tft.fillScreen(BG_COLOR);
 
   bufferPos = 0;
@@ -117,12 +111,6 @@ void setup() {
   defaultScreen2(adcValue);
   myTimer = millis();
 
-  // Setup SD Card
-  if (!SD.begin(chipSelect)) {
-    Serial.println("initialization failed!");
-    return;
-  }
-  Serial.println("initialization done.");
 }
 
 int adcValueCopy = 0;
@@ -136,29 +124,29 @@ unsigned long progTimer = 0;
 unsigned long timePerPixel = 40 / (screenWidth / numLinesWidth);  // ms
 
 void loop() {
-  //  Serial.println("Main Loop");
+  //  ////Serial.println("Main Loop");
 
   buttonState = onOff();
   if (buttonState) {
     if (progRunning) {
-      //  Serial.println("Set Prog Running to 0");
+      //  ////Serial.println("Set Prog Running to 0");
       progRunning = 0;
       
       // Enable ADC interrupt, configure pin to ECG output 
       ADC0_SC1A = ADC_SC1_AIEN | 0;
       ADC0_SC1A = ADC_SC1_AIEN | channel2sc1a[7];
     } else {
-      //  Serial.println("Set Prog Running to 1");
+      //  ////Serial.println("Set Prog Running to 1");
       chooseOption(adcValue);
     }
     buttonState = 0;
-    //  Serial.println("Button On");
+    //  ////Serial.println("Button On");
     tft.fillScreen(BG_COLOR);
   }
 
   if (progRunning) {
     if (!stabilizedFlag) {
-      //Serial.println("Stabilizing..");
+      //////Serial.println("Stabilizing..");
       tft.fillScreen(BG_COLOR);
       stabilize2();
       //tft.fillScreen(BG_COLOR);
@@ -167,10 +155,10 @@ void loop() {
 //      textResults(0, 0);
     }
     if (progRunning) {
-      //Serial.println("EKG Prog");
+      //////Serial.println("EKG Prog");
       ekgProg();
     } else {
-      //Serial.println("Start Screen");
+      //////Serial.println("Start Screen");
       defaultScreen2(adcValue);
     }
   } else {
@@ -184,7 +172,10 @@ void startScreen() {
   tft.println("EKG");
   tft.println("Press Button to Start!");
 }
-
+int heartAvg = 0;
+int heartSum = 0;
+int countPAC = 0;
+int QRScopy = 0;
 long sampleTimer = 0;
 int currentIx = 0;
 int LPF_Data;
@@ -198,6 +189,9 @@ int saveRaw = 1; // at prog end, chooses what type of data to save
 // filter used for filtering buffer data if chosen
 double inBPF[5] = {0, 0, 0, 0, 0};
 double outBPF[5] = {0, 0, 0, 0, 0}; 
+int countBrad = 0;
+int countTach = 0;
+
 void ekgProg() {
   if (millis() - startTimer <= PROG_MAX_TIME) {
     adcValueCopy = adcValue;
@@ -210,9 +204,9 @@ void ekgProg() {
     
     //MovingAvg = movingAvgFilter();
     //MovingAvg = adcValueCopy;
-    //Serial.println("Moving AVG: ");
-    //Serial.println(MovingAvg);
-//    Serial.println(myTimer);
+    //////Serial.println("Moving AVG: ");
+    //////Serial.println(MovingAvg);
+//    ////Serial.println(myTimer);
     myTimer = millis() - myTimer;
     if (myTimer >= 1000 ) {
       drawNewData();
@@ -221,9 +215,17 @@ void ekgProg() {
     }
   } else {
     progRunning  = 0;
+    countBrad = 0; 
+    countTach = 0;
     tft.fillScreen(BG_COLOR);
     
-    displayResults(heartRate, QRS_timer, heartRate < 60, heartRate > 110, 0);
+    displayResults(heartRate, heartAvg, countBrad >= MIN_COUNT_OF_REPEAT, countTach >= MIN_COUNT_OF_REPEAT, 0);
+    tft.setFont(RussoOne_28);
+    tft.setCursor(40, 10);
+    tft.setTextColor(TEXT_COLOR);
+    tft.println("Saving File...");
+    tft.setFont(DEF_FONT);
+
     if (saveRaw) {
       writeCard(myBuffer, BUFFER_SIZE);
     } else {
@@ -239,7 +241,8 @@ void ekgProg() {
       writeCard(myBuffer, BUFFER_SIZE);
     }
     bufferPos = 0;
-    
+    delay(1000); // show file name on screen for second
+    tft.fillScreen(BG_COLOR);
     // Enable ADC interrupt, configure pin to Pot
     ADC0_SC1A = ADC_SC1_AIEN | 0;
     ADC0_SC1A = ADC_SC1_AIEN | channel2sc1a[7];
@@ -270,11 +273,14 @@ int onOff() {
 
 int y2Prev = 0;
 int QRS_startFlag = 0; 
-int countBrad = 0;
-int countTach = 0;
-
+int heartArray[7] = {0};
 double sqrWind = 0;
-int QRScopy = 0;
+
+int foundStableHeart = 0;
+int heartWithinRange = 0;
+
+int heartLow = 0;
+int heartHigh = 0;
 void drawNewData() {
 //  LPF3();
   // For 4th Order 3-20Hz
@@ -286,27 +292,28 @@ void drawNewData() {
   y = y - 510;
   
 
-  double sqr = squaring();
+  double sqr = squaring(); // KEEP THIS
 //  double sqrWind = movingWindowInt();
   sqrWind = lowPassExponential(0.8, sqrWind); // input first param [0 to 1]
-//  Serial.println(sqrWind);
+//  ////Serial.print("SQRWIND: ");
+//  ////Serial.println(sqrWind);
   // draw over line before writing new value
 //  tft.drawLine(x, 0, x, screenHeight, BG_COLOR);
   //tft.drawLine(x + 1, 0, x + 1, screenHeight, BG_COLOR);
   // make sure grid is not erased
   //       if (sqr > 200.0) {
 
-//    Serial.println(sqrWind);
-//    Serial.println(adaptiveThresh);
-//    Serial.println(localThresh / (maxBeats+1));
+//    ////Serial.println(sqrWind);
+//    ////Serial.println(adaptiveThresh);
+//    //////Serial.println(localThresh / (maxBeats+1));
 if (sqrWind < 4  && sqrWind > 0.5) {
     if (QRS_startFlag) {
       QRS_timer = millis() - QRS_timer;
       QRScopy = (int)QRS_timer;
-      Serial.print("QRS timer is: ");
-      Serial.println(QRS_timer);
-      Serial.print("QRS(int) timer is: ");
-      Serial.println((int)QRS_timer);
+//      ////Serial.print("QRS timer is: ");
+//      ////Serial.println(QRS_timer);
+//      ////Serial.print("QRS(int) timer is: ");
+//      ////Serial.println((int)QRS_timer);
       tft.drawLine(x, screenHeight-20, x, screenHeight, ILI9341_MAGENTA);
     tft.drawLine(x + 1, screenHeight-20, x + 1, screenHeight, ILI9341_MAGENTA);
     tft.drawLine(x - 1, screenHeight-20, x - 1, screenHeight, ILI9341_MAGENTA);
@@ -315,34 +322,66 @@ if (sqrWind < 4  && sqrWind > 0.5) {
     QRS_timer = millis();
    // tft.drawLine(x, 0, x, screenHeight, ILI9341_MAGENTA);
 }
-//  Serial.print("SqrWind: ");
-//  Serial.println(sqrWind);
+//  ////Serial.print("SqrWind: ");
+//  ////Serial.println(sqrWind);
   if (sqrWind > adaptiveThresh) {
     PeriodOfRR = (millis() - heartRateTimer);
+    countPAC += detectPAC();
     if (PeriodOfRR > QRS_MAX_TIME) {
       QRS_startFlag = 1;
-      //Serial.println("RR interval: "); 
-      //Serial.println(PeriodOfRR);
+      //////Serial.println("RR interval: "); 
+      //////Serial.println(PeriodOfRR);
       double period = PeriodOfRR / 1000;
       heartRate =  60 / period;
+      for (int i = 0; i < 6; i++) {
+        heartArray[i+1] = heartArray[i];
+      } 
+      heartArray[0] = heartRate;
+      
+//      if (!foundStableHeart) {
+//        heartWithinRange = 1;
+//        for (int i = 0; i < 3; i++) {
+//          if (heartArray[i] < 160 && heartArray[i] > 40) {
+//            // heart within range
+//          } else {
+//            heartWithinRange = 0;
+//          }
+//        }
+//        if (heartWithinRange) {
+//          if ( (abs(heartArray[0] - heartArray[1])) < 20 && (abs(heartArray[1] - heartArray[2]) < 20) && (abs(heartArray[2] - heartArray[3]) < 20) ) {
+//            foundStableHeart = 1;
+//            heartAvg = (heartArray[0] + heartArray[1] + heartArray[2]) / 3;
+//          }
+//        }
+//      }
+
+//      heartLow = heartAvg * 0.8;
+//      heartHigh = heartAvg * 1.2;
+//      int countBeats = 0;
+//      for (int i = 0; i < 6; i++) {
+//        if (heartArray[i] > heartLow && heartArray[i] < heartHigh) {
+//         // heartAvg = (heartAvg + heartRate) / 2;
+//          heartAvg+=heartArray[i];
+//          countBeats++;
+//        }
+//      }
+//      
+//      heartAvg = heartAvg/countBeats;
       heartRateTimer = millis();
-//      Serial.print("Heart rate is: ");
-//      Serial.println(heartRate);
-      if (heartRate < 60) {
-        
-        countBrad++; 
-        if (countBrad >= MIN_COUNT_OF_REPEAT) {
-          bradycardia = 1;
-        }
-      } else if (heartRate > 110) {
-        countTach++;
-        if (countTach >= MIN_COUNT_OF_REPEAT) {
-          tachycardia = 1;
-        }
-      } else {
-        countTach = 0;
-        countBrad = 0;
-      }
+//      ////Serial.print("Heart rate is: ");
+//      ////Serial.println(heartRate);
+//      if (heartRate < 60) {
+//        
+//        countBrad++; 
+//      } else if (heartRate > 110) {
+//        countTach++;
+//        if (countTach >= MIN_COUNT_OF_REPEAT) {
+//          tachycardia = 1;
+//        }
+//      } else {
+//        countTach = 0;
+//        countBrad = 0;
+//      }
     }
     tft.drawLine(x, screenHeight-20, x, screenHeight, ILI9341_GREEN);
     tft.drawLine(x + 1, screenHeight-20, x + 1, screenHeight, ILI9341_GREEN);
@@ -388,6 +427,10 @@ if (sqrWind < 4  && sqrWind > 0.5) {
     drawGrid();
     textResultsBorder();
     textResults((int)heartRate, QRScopy);
+    blueECGData();
+    if (countPAC > 5) {
+      tft.fillRect(0,0,10, 10, ILI9341_MAGENTA);
+    }
   }
 
 }
@@ -437,53 +480,6 @@ void drawGrid() {
   }
 }
 
-void writeCard(int* buff, int bufferLength) {
-
-  String fileName = "KARLBN" + (String)fileHeadingNumber;
-  fileName = fileName + ".txt";
-
-  int fileNameLength = fileName.length() + 1;
-  char file[fileNameLength];
-  fileName.toCharArray(file, fileNameLength);
-
-  String header = initials + fileHeadingNumber;
-  header = header + ", ";
-  header = header + sRate;
-  int headerLength = header.length() + 1;
-  char headerCharArray[headerLength];
-  header.toCharArray(headerCharArray, headerLength);
-
-  Serial.println(file);
-  // open the file. note that only one file can be open at a time,
-  // so you have to close this one before opening another.
-  SD.remove(file);
-  myFile = SD.open(file, FILE_WRITE);
-
-  // if the file opened okay, write to it:
-  if (myFile) {
-    Serial.print("Writing...");
-    myFile.println(headerCharArray);
-    for (int i = 1; i <= bufferLength; i++) {
-      myFile.print(buff[i - 1]);
-
-      if (i % 8 == 0 && i != 1) {
-        myFile.println();
-        // if not last item, print comma
-      } else if (bufferLength != i) {
-        myFile.print(", ");
-      }
-    }
-    myFile.println();
-    myFile.println("EOF");
-    // close the file:
-    myFile.close();
-    Serial.println("done.");
-  } else {
-    // if the file didn't open, print an error:
-  }
-  fileHeadingNumber++;
-}
-
 void addToBuffer(int val) {
   if (stabilizedFlag) {
     myBuffer[bufferPos] = val;
@@ -531,7 +527,8 @@ void textResults(int hr, int qrsi) {
   tft.print("BC: ");
   tft.setFont(AwesomeF100_14);
   if (hr < 60 && hr != -1) {
-    tft.setTextColor(ILI9341_PINK);
+    countBrad++;
+    tft.setTextColor(ILI9341_RED);
     tft.print((char)25);
   } else {
     tft.setTextColor(ILI9341_GREEN);
@@ -544,7 +541,8 @@ void textResults(int hr, int qrsi) {
   tft.print("TC: ");
   tft.setFont(AwesomeF100_14);
   if (hr > 110 && hr != -1) {
-    tft.setTextColor(ILI9341_PINK);
+    countTach++;
+    tft.setTextColor(ILI9341_RED);
     tft.print((char)25);
   } else {
     tft.setTextColor(ILI9341_GREEN);

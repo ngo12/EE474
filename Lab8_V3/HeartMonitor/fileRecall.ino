@@ -13,7 +13,8 @@
 *********************************************************************/
 
 #include <Arduino.h>
-#include <SD.h>
+#include "SD.h"
+//#include "SdFat.h"
 #include <SPI.h>
 #if not defined (_VARIANT_ARDUINO_DUE_X_) && not defined (_VARIANT_ARDUINO_ZERO_)
 #include <SoftwareSerial.h>
@@ -22,6 +23,25 @@
 #include "Adafruit_BLE.h"
 #include "Adafruit_BluefruitLE_SPI.h"
 #include "Adafruit_BluefruitLE_UART.h"
+
+// For SD Card
+String initials = "KARLBN";
+String sRate = "250";
+const int chipSelect = 4;
+int fileHeadingNumber = 0;
+
+String fileName;
+char filename[20];
+int fileCount;
+String directory[128];
+
+//SdFat sd; // File system object.
+
+File root;
+File myFile;  
+
+int optionCurr;
+int optionPrev;
 /*=========================================================================
     APPLICATION SETTINGS
 
@@ -80,7 +100,7 @@ Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_
 
 // A small helper
 void error(const __FlashStringHelper*err) {
-  Serial.println(err);
+  //Serial.println(err);
   while (1);
 }
 
@@ -88,42 +108,42 @@ void error(const __FlashStringHelper*err) {
 /* Intializes Adafruit Blutooth module 
  */
 /**************************************************************************/
+void directoryPrint(File dir, int numTabs);
 void blueInit() {
-  while (!Serial);  // required for Flora & Micro
-  delay(500);
-
-  Serial.begin(115200);
-  Serial.println(F("Adafruit Bluefruit Command Mode Example"));
-  Serial.println(F("---------------------------------------"));
+  Serial.begin(9600);
+  //Serial.println(F("Adafruit Bluefruit Command Mode Example"));
+  //Serial.println(F("---------------------------------------"));
 
   /* Initialise the module */
-  Serial.print(F("Initialising the Bluefruit LE module: "));
+  //Serial.print(F("Initialising the Bluefruit LE module: "));
 
   if ( !ble.begin(VERBOSE_MODE) )
   {
     error(F("Couldn't find Bluefruit, make sure it's in CoMmanD mode & check wiring?"));
   }
-  Serial.println( F("OK!") );
+  //Serial.println( F("OK!") );
 
   if ( FACTORYRESET_ENABLE )
   {
     /* Perform a factory reset to make sure everything is in a known state */
-    Serial.println(F("Performing a factory reset: "));
+    //Serial.println(F("Performing a factory reset: "));
     if ( ! ble.factoryReset() ){
       error(F("Couldn't factory reset"));
     }
   }
 
+  ble.sendCommandCheckOK(F("AT+GAPDEVNAME=KARLBN ECG"));
+
   /* Disable command echo from Bluefruit */
   ble.echo(false);
 
-  Serial.println("Requesting Bluefruit info:");
+  //Serial.println("Requesting Bluefruit info:");
   /* Print Bluefruit information */
   ble.info();
 
-  Serial.println(F("Please use Adafruit Bluefruit LE app to connect in UART mode"));
-  Serial.println(F("Then Enter characters to send to Bluefruit"));
-  Serial.println();
+  //Serial.println(F("Please use Adafruit Bluefruit LE app to connect in UART mode"));
+  //Serial.println(F("Then Enter characters to send to Bluefruit"));
+  //Serial.println();
 
   ble.verbose(false);  // debug info is a little annoying after this point!
 
@@ -136,22 +156,38 @@ void blueInit() {
   if ( ble.isVersionAtLeast(MINIMUM_FIRMWARE_VERSION) )
   {
     // Change Mode LED Activity
-    Serial.println(F("******************************"));
-    Serial.println(F("Change LED activity to " MODE_LED_BEHAVIOUR));
+    //Serial.println(F("******************************"));
+    //Serial.println(F("Change LED activity to " MODE_LED_BEHAVIOUR));
     ble.sendCommandCheckOK("AT+HWModeLED=" MODE_LED_BEHAVIOUR);
-    Serial.println(F("******************************"));
+    //Serial.println(F("******************************"));
   }
  
 }
 
 // Bluetooth data transmission
+#define BUFFERSIZE 8500
 int bufferpos = 0; 
 int readFile = 1; 
-int BUFFERSIZE = 8500;
 int count = 0;
+char inputs[BUFFERSIZE+1];
 
 // SD Card 
 int n;
+
+/**************************************************************************/
+/* Intializes SD card 
+ */
+/**************************************************************************/
+void sdInit() {
+     // Setup SD Card
+  if (!SD.begin(chipSelect)) {
+    //Serial.println("initialization failed!");
+    return;
+  } else {
+    //Serial.println("initialization done.");
+  }
+  root = SD.open("/ECGData");
+}
 
 /**************************************************************************/
 /* Sets screen on LCD display requesting that the 
@@ -188,8 +224,6 @@ void connectScreen() {
 /**************************************************************************/
 bool appendToBuffer(char buffer[], String data)
 {   
-  // Clears the data buffer 
-  memset(buffer, 0, BUFFERSIZE);
   
   for (int i = 0; i < data.length(); i++) {
     buffer[bufferpos] = data.charAt(i); 
@@ -211,41 +245,60 @@ void sendSD(String filename) {
   int i = 0;
   int value;
   String data;
-  char inputs[BUFFERSIZE+1];
+  int bufferCounter = 0;
+  chooseFile(adcValue);
+  //Serial.println(optionCurr);
+  if (optionCurr != 0) {  
+    fileName = "ECGData/" + fileName;
+    myFile = SD.open(fileName, FILE_READ);
   
-  myFile = SD.open(filename, FILE_READ);
-
-  // if the file opened okay, write to it:
-  if (myFile) {
-    Serial.print("Reading...\n");
-    
-    myFile.parseInt();
-    myFile.parseInt();
-
-    sendingSDScreen();
-    
-    while (myFile.available()) {
-      buttonState = onOff();
+    // if the file opened okay, write to it:
+    if (myFile) {
+      //Serial.print("Reading...\n");
+  
+      // read from the file until there's nothing else in it:
+      String received = "";
+      char ch;
       
-      if (buttonState) {
-        break;
+      myFile.parseInt();
+      myFile.parseInt();
+      
+      ////Serial.println("INCREMENTING");
+      while (myFile.available()) {
+        // Reads data from file,
+        // converts the value to a string,
+        // and appends a comma and newline 
+        // before sending over bluetooth
+        ////Serial.println(value);
+        myBuffer[bufferCounter] = myFile.parseInt();
+        bufferCounter++;
+        ////Serial.println(myBuffer[i]);
       }
-      
-      // Reads data from file,
-      // converts the value to a string,
-      // and appends a comma and newline 
-      // before sending over bluetooth
-      value = myFile.parseInt();
-      data = String(value) + ",\\n";    
-      appendToBuffer(inputs, data);
-      bufferpos = 0;
-      
-      ble.print("AT+BLEUARTTX=");
-      ble.println(inputs);
-      delay(30);
-    }   
+
+      sendingSDScreen();
+      for (int i = 0; i < bufferCounter; i++) { 
+        buttonState = onOff();
+        
+        if (buttonState) {
+          buttonState = 0;
+          break;
+        }
+        
+        data = String(myBuffer[i]) + ",\\n";
+        
+        // Clears the data buffer 
+        memset(inputs, 0, BUFFERSIZE);
+        
+        appendToBuffer(inputs, data);
+        ////Serial.println(inputs); 
+        bufferpos = 0;
+          
+        ble.print("AT+BLEUARTTX=");
+        ble.println(inputs);
+        delay(30);
+      }
+    }
   }
-  buttonState = 0;
 }
 
 /**************************************************************************/
@@ -263,6 +316,168 @@ void sendingSDScreen() {
   tft.setCursor(0, 80);
   tft.setTextColor(ILI9341_RED);
   tft.println("Press Button to Stop");
+}
+
+void writeCard(int* buff, int bufferLength) {
+
+  String fileName = "ECGData/KARLBN" + (String)fileHeadingNumber;
+  fileName = fileName + ".txt";
+  tft.setCursor(90, 100);
+  tft.setTextColor(ILI9341_BLUE);
+  tft.println(fileName);
+  int fileNameLength = fileName.length() + 1;
+  char file[fileNameLength + 8];
+  fileName.toCharArray(file, fileNameLength);
+
+  String header = initials + fileHeadingNumber;
+  header = header + ", ";
+  header = header + sRate;
+  int headerLength = header.length() + 1;
+  char headerCharArray[headerLength];
+  header.toCharArray(headerCharArray, headerLength);
+
+  ////Serial.println(file);
+  // open the file. note that only one file can be open at a time,
+  // so you have to close this one before opening another.
+  SD.remove(file);
+  myFile = SD.open(file, FILE_WRITE);
+
+  // if the file opened okay, write to it:
+  if (myFile) {
+    //Serial.print("Writing...");
+    myFile.println(headerCharArray);
+    for (int i = 1; i <= bufferLength; i++) {
+      myFile.print(buff[i - 1]);
+
+      if (i % 8 == 0 && i != 1) {
+        myFile.println();
+        // if not last item, print comma
+      } else if (bufferLength != i) {
+        myFile.print(", ");
+      }
+    }
+    myFile.println();
+    myFile.println("EOF");
+    // close the file:
+    myFile.close();
+    ////Serial.println("done.");
+  } else {
+    // if the file didn't open, print an error:
+    //Serial.println("error opening file");
+  }
+  fileHeadingNumber++;
+}
+
+void directoryPrint(File dir, int numTabs) {
+  while (true) {
+    
+    File entry =  dir.openNextFile();
+    if (! entry) {
+      // no more files
+      break;
+    }
+    for (uint8_t i = 0; i < numTabs; i++) {
+      //Serial.print('\t');
+    }
+    
+    if (entry.isDirectory()) {
+      ////Serial.println("/");
+      directoryPrint(entry, numTabs + 1);
+    } else {
+      // files have sizes, directories do not
+      fileName = entry.name();
+      ////Serial.print(fileName);
+      directory[fileCount] = fileName;
+      ////Serial.print("\t\t");
+      ////Serial.println(entry.size(), DEC);
+      fileCount++;
+    }
+    entry.close();
+  }
+}
+
+void chooseFile(int option) {
+  int chosen = 1; 
+  int mappedOption; 
+  fileCount = 0;
+  //Serial.print("Before Count: ");
+  //Serial.println(fileCount);
+  root.rewindDirectory();
+  directoryPrint(root, 0);
+  //Serial.print("After Count: ");
+  //Serial.println(fileCount);
+
+  tft.fillScreen(BG_COLOR);
+  tft.setCursor(0, 80);
+  
+  if (optionCurr == 0) {
+    tft.setTextColor(ILI9341_RED);
+    tft.println("CANCEL");
+  } else {
+    fileName = directory[optionCurr-1];
+    tft.setTextColor(ILI9341_BLACK);
+    tft.println(fileName);
+  }
+  
+  while (chosen) {
+    ////Serial.print("In Loop Count: ");
+    ////Serial.println(fileCount);
+    buttonState = onOff();
+    ////Serial.println(buttonState);
+    if (buttonState) {
+      buttonState = 0;
+      chosen = 0;
+    }
+    
+    mappedOption = map(adcValue, 0, 4096, 0, fileCount+1);
+    optionCurr = constrain(mappedOption, 0, fileCount);
+
+    if (optionCurr != optionPrev) {
+      tft.fillScreen(BG_COLOR);
+      tft.setCursor(0, 80);
+      if (optionCurr == 0) {
+        tft.setTextColor(ILI9341_RED);
+        tft.println("CANCEL");
+      } else {
+        //getFileName(optionCurr-1); 
+        fileName = directory[optionCurr-1];
+        tft.setTextColor(ILI9341_BLACK);
+        tft.println(fileName);
+      }
+    }
+    optionPrev = optionCurr; 
+  }
+}
+
+void blueECGData() {
+  // Check for user input
+  String BPM = "HEART RATE (BPM): "; 
+  String BPMVal = String(heartRate) + "\\n";  
+  String QRS = "QRZ Int(ms): "; 
+  String QRSVal = String(QRScopy) + "\\n";  
+  String newpage = "\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n"; 
+
+  // Clears the data buffer 
+  memset(inputs, 0, BUFFERSIZE);
+  
+  // Adds the desired data to be sent and displayed 
+  // on the phone via bluetooth 
+  appendToBuffer(inputs, BPM);
+  appendToBuffer(inputs, BPMVal);
+  appendToBuffer(inputs, QRS);
+  appendToBuffer(inputs, QRSVal);
+  appendToBuffer(inputs, newpage);
+
+  // Send characters to Bluefruit
+  //Serial.print("[Send] ");
+  //Serial.println(inputs);
+  
+  ble.print("AT+BLEUARTTX=");
+  ble.println(inputs);
+  
+  // Resets the buffer position for the new 
+  // data in the next loop 
+  bufferpos = 0; 
 }
 
 

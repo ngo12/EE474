@@ -10,7 +10,6 @@
 */
 
 
-double RR[7] = {0};  // holds current and prev RR interval values
 
 // main PAC test, uses three tests to determine if PAC detected
 int detectPAC() {

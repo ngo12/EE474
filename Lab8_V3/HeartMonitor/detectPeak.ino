@@ -18,7 +18,7 @@ double filtSignal = 0;           // filter signal, used to find peaks
 int countedBeats = 0;            // consecutive heart beats found
 const int maxBeats = 5;          // once we reach this many consecutive beats, move to main prog
 
-double threshStart = 100;        // start calibration threshold here
+double threshStart = 700;        // start calibration threshold here
 double calThresh = threshStart;  // compare current signal to this
 double localThresh = 0;          // threshold that will eventually become global for R peak detection
 int threshNotFound = 0;          // keep track or times we don't meet thresh, if too many something is wrong
@@ -39,6 +39,7 @@ void stabilize2() {
 
   // setup display for calibrating mode
   displayCalibrating();
+  delay(1500);
   tft.setCursor(136, 210);
   
   calTimer = millis();
@@ -59,7 +60,9 @@ void stabilize2() {
     // get current signal and filter it
     adcValueCopy = adcValue;
     filtSignal = lowPassExponential(0.8, filtSignal);
-
+//    filtSignal = squaring();
+////Serial.print("Filtsig");
+//    //Serial.println(filtSignal);
     // check for consistent heartbeats and display progress to LCD
     checkHeart();
     updateCalibrating(); 
@@ -88,6 +91,10 @@ void stabilize2() {
       stabilizedFlag = 1;
       progRunning = 1;
       displayCalibrated();
+      Serial.println(adaptiveThresh);
+      Serial.println(adaptiveThresh);
+      Serial.println(adaptiveThresh);
+      Serial.println(adaptiveThresh);
       delay(1000);
       mainProgSetup();
     }
@@ -108,15 +115,15 @@ void checkHeart() {
       double period = PeriodOfRR / 1000;
       heartRate =  60 / period;
       heartRateTimer = millis();
-            Serial.print("FS2: ");
-      Serial.println(filtSignal);
-      Serial.print("HR: ");
-      Serial.println(heartRate);
-      Serial.print("CB: ");
-      Serial.println(countedBeats);
-      Serial.print("OT: ");
-      Serial.println(calThresh);
-      Serial.println();
+//            //Serial.print("FS2: ");
+//      //Serial.println(filtSignal);
+//      //Serial.print("HR: ");
+//      //Serial.println(heartRate);
+//      //Serial.print("CB: ");
+//      //Serial.println(countedBeats);
+//      //Serial.print("OT: ");
+//      //Serial.println(calThresh);
+//      //Serial.println();
 
       if (heartRate > 160) {
         countedBeats = 0;
@@ -134,9 +141,9 @@ void checkHeart() {
       } else {
         calThresh = 0.8 * filtSignal;
         if (0.04 * filtSignal < 40) {
-          localThresh = localThresh + 0.012 * filtSignal;
+          localThresh = localThresh + 0.020 * filtSignal;
         } else {
-          localThresh = localThresh + 0.028 * filtSignal;
+          localThresh = localThresh + 0.025 * filtSignal;
         }
         lastHeartRate = heartRate;
         countedBeats++;
@@ -205,6 +212,8 @@ void mainProgSetup() {
   textResultsBorder();
   textResults(-1, -1);
   startTimer = millis();
+  countPAC = 0;
+  foundStableHeart = 0;
 }
 
 

@@ -83,7 +83,7 @@ void pdbInit() {
 void adc0_isr() {
   adcValue = ADC0_RA;
   addToBuffer(adcValue);
-  //Serial.println(adcValue);
+  ////Serial.println(adcValue);
 }
 
 void pdb_isr() {
