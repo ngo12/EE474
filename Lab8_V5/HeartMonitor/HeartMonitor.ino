@@ -272,7 +272,7 @@ void drawNewData() {
 //  y = map(LPF(),0, 4095, screenHeight + 360, 0) * 2;
   y = y - 510;
   
-  double sqr = squaring(); // KEEP THIS
+  double sqr = squaring(); // KEEP THIS, double filtering
   sqrWind = lowPassExponential(0.8, sqrWind); // input first param [0 to 1]
   if (sqrWind < 4  && sqrWind > 0.5) {
       if (QRS_startFlag) {
@@ -292,39 +292,10 @@ void drawNewData() {
       QRS_startFlag = 1;
       double period = PeriodOfRR / 1000;
       heartRate =  60 / period;
-
-      
-      if (heartRate < 60) {     
-        countBrad++; 
-//        Serial.print("Heart Rate: " );
-//        Serial.println(heartRate);
-//        Serial.print("CountBrad: ");
-//        Serial.println(countBrad);
-        if (countBrad >= MIN_COUNT_OF_REPEAT) {
-          bradycardia = 1;
-        } 
-      } else {
-        countBrad = 0;
-      }
-      if (heartRate > 110) {
-        countTach++;
-//        Serial.print("Heart Rate: " );
-//        Serial.println(heartRate);
-//        Serial.print("CountTach: ");
-//        Serial.println(countTach);
-        if (countTach >= MIN_COUNT_OF_REPEAT) {
-          tachycardia = 1;
-        }  
-      } else {
-        countTach = 0; 
-
-      }
       
       if (!foundStableHeart) {
         heartWithinRange = 1;
         for (int i = 0; i < 3; i++) {
-//          Serial.print(heartArray[i]);
-//          Serial.print(", ");
           if (heartArray[i] < 160 && heartArray[i] > 40) {
             // heart within range
           } else {
@@ -334,13 +305,10 @@ void drawNewData() {
         if (heartWithinRange) {
           if ( (abs(heartArray[0] - heartArray[1])) < 20 && (abs(heartArray[1] - heartArray[2]) < 20) && (abs(heartArray[2] - heartArray[3]) < 20) ) {
             foundStableHeart = 1;
-//            Serial.println("FOUND HEART STABLE!!");
             heartAvg = (heartArray[0] + heartArray[1] + heartArray[2]) / 3;
-//            Serial.println(heartAvg);
           }
         }
       }
-//      Serial.println();
 
       if (!foundStableQRS) {
         qrsWithinRange = 1;
@@ -383,14 +351,9 @@ void drawNewData() {
           if (heartArray[7] != 0) {
             heartAvg = 0;
             for (int i = 0; i < 8; i++) {
-//              Serial.print(heartArray[i]);
-//              Serial.print(", ");
               heartAvg = heartAvg + heartArray[i];
             }
             heartAvg = heartAvg / 8;
-//            Serial.println();
-//            Serial.print("HEART AVG: ");
-//            Serial.println(heartAvg);
           }
         }
       }
