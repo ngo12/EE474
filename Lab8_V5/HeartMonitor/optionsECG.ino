@@ -1,3 +1,16 @@
+/*
+  optionsECG
+  
+  Lab 8
+  Course: EE 474
+
+  Names and Student Numbers:
+  Ryan Linden: 1571298
+  Khalid Alzuhair: 1360167
+  Brandon Ngo: 1462375
+
+*/
+
 
 /**************************************************************************/
 /* Chooses the corresponding action according to the value of 

@@ -1,5 +1,5 @@
 /*
-  detectPeak: Used for calibration during the 
+  Calibration: Used for calibration during the 
   ECG program before beginning measurement. 
   
   Lab 8
@@ -119,11 +119,6 @@ void checkHeart() {
         countedBeats = 0;
         localThresh = 0;
         calThresh = 0.75 * filtSignal;
-//      } else if (lastHeartRate != 0 && abs(heartRate - lastHeartRate) > 40) {
-//        countedBeats = 0;
-//        localThresh = 0;
-//        lastHeartRate = 0;
-//        calThresh = 0.8 * filtSignal;
       } else {
         calThresh = 0.8 * filtSignal;
         if (0.04 * filtSignal < 40) {

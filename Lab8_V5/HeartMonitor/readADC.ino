@@ -1,3 +1,16 @@
+/*
+  ADC Setup
+  
+  Lab 8
+  Course: EE 474
+
+  Names and Student Numbers:
+  Ryan Linden: 1571298
+  Khalid Alzuhair: 1360167
+  Brandon Ngo: 1462375
+
+*/
+
 #define PDB_CH0C1_TOS 0x0100
 #define PDB_CH0C1_EN 0x01
 
